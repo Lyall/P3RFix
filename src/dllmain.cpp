@@ -158,7 +158,25 @@ void ReadConfig()
 
 void Resolution()
 { 
-    //20 03 00 00 C2 01 00 00 00 05
+    // Add custom resolution
+    uint8_t* ResListScanResult = Memory::PatternScan(baseModule, "20 03 00 00 C2 01 00 00 00 05");
+    if (ResListScanResult)
+    {
+        for (int i = 0; i < 7; i++)
+        {
+            int offset = (i * 0x8);
+            int ResX = *reinterpret_cast<int*>(ResListScanResult + offset);
+            int ResY = *reinterpret_cast<int*>(ResListScanResult + offset + 0x4);
+            spdlog::info("Resolution List: Resolution {} = {}x{}", i, ResX, ResY);
+
+            if (ResX == 800 && ResY == 450)
+            {
+                Memory::Write((uintptr_t)ResListScanResult + offset, iCustomResX);
+                Memory::Write((uintptr_t)ResListScanResult + offset + 0x4, iCustomResY);
+                spdlog::info("Resolution List: Replaced {}x{} with {}x{}", ResX, ResY, iCustomResX, iCustomResY);
+            }
+        }
+    }
 
     // Grab current resolution.
     uint8_t* CurrResolutionScanResult = Memory::PatternScan(baseModule, "33 ?? B9 ?? ?? ?? ?? 45 ?? ?? 48 ?? ?? 4A ?? ?? ?? 48 ?? ?? 8B ??");
@@ -173,7 +191,6 @@ void Resolution()
                 iCustomResY = *(int*)(&ctx.r9);
                 fAspectRatio = (float)iCustomResX / iCustomResY;
             });
-      
     }
     else if (!CurrResolutionScanResult)
     {
@@ -236,7 +253,7 @@ void AspectFOVFix()
         if (AspectRatioCheckScanResult)
         {
             spdlog::info("Aspect Ratio Check: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)AspectRatioCheckScanResult - (uintptr_t)baseModule);
-            Memory::PatchBytes((uintptr_t)AspectRatioCheckScanResult + 0x5, "\x85", 1);
+            Memory::PatchBytes((uintptr_t)AspectRatioCheckScanResult + 0x5, "\x87", 1);
             spdlog::info("Aspect Ratio Check: Instruction patched.");
         }
         else if (!AspectRatioCheckScanResult)
