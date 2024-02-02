@@ -84,11 +84,20 @@ void ReadConfig()
     std::ifstream iniFile(sConfigFile);
     if (!iniFile)
     {
-        spdlog::error("Failed to load config file. Trying alternate path...");
+        spdlog::error("Failed to load config file. Trying WinGDK path...");
         std::ifstream iniFile("./P3R/Binaries/WinGDK/" + sConfigFile);
         if (!iniFile)
         {
-            spdlog::critical("Make sure {} is present in the game folder.", sConfigFile);
+            spdlog::error("Failed to load config file. Trying Win64 path...");
+            std::ifstream iniFile("./P3R/Binaries/Win64/" + sConfigFile);
+            if (!iniFile)
+            {
+                spdlog::critical("Config file missing! Make sure {} is present in the game folder.", sConfigFile);
+            }
+            else
+            {
+                ini.parse(iniFile);
+            }
         }
         else
         {
