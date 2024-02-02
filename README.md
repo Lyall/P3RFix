@@ -8,7 +8,6 @@ This is a fix that adds custom resolutions, ultrawide support and more to Person
 - Custom resolution support.
 - Ultrawide/narrow aspect ratio support.
 - FOV correction and option to increase FOV.
-- FPS uncap option.
 
 ## Installation
 - Grab the latest release of P3RFix from [here.](https://github.com/Lyall/P3RFix/releases)
@@ -23,7 +22,9 @@ This is a fix that adds custom resolutions, ultrawide support and more to Person
 ## Known Issues
 Please report any issues you see.
 This list will contain bugs which may or may not be fixed.
-  
+
+- Enabling the fps uncap feature may cause some voice lines to skip.
+
 ## Screenshots
 
 | ![ezgif-5-7e73acc575](https://github.com/Lyall/P3RFix/assets/695941/56b5088b-1272-4621-9d71-e1bda21337d5) |
