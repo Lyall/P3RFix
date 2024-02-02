@@ -84,29 +84,42 @@ void ReadConfig()
     std::ifstream iniFile(sConfigFile);
     if (!iniFile)
     {
-        spdlog::error("Failed to load config file. Trying WinGDK path...");
-        std::ifstream iniFile("./P3R/Binaries/WinGDK/" + sConfigFile);
-        if (!iniFile)
+        spdlog::error("Failed to load config file. Trying alternate paths...");
+
+        // WinGDK
+        if (sExePath.string().find("WinGDK") != string::npos)
         {
-            spdlog::error("Failed to load config file. Trying Win64 path...");
-            std::ifstream iniFile("./P3R/Binaries/Win64/" + sConfigFile);
+            std::ifstream iniFile("./P3R/Binaries/WinGDK/" + sConfigFile);
             if (!iniFile)
             {
-                spdlog::critical("Config file missing! Make sure {} is present in the game folder.", sConfigFile);
+                spdlog::critical("WinGDK: Config file missing! Make sure {} is present in the game folder.", sConfigFile);
             }
             else
             {
                 ini.parse(iniFile);
+                spdlog::info("WinGDK: Config file loaded successfully.");
             }
         }
-        else
+     
+        // Win64
+        if (sExePath.string().find("Win64") != string::npos)
         {
-            ini.parse(iniFile);
+            std::ifstream iniFile("./P3R/Binaries/Win64/" + sConfigFile);
+            if (!iniFile)
+            {
+                spdlog::critical("Win64: Config file missing! Make sure {} is present in the game folder.", sConfigFile);
+            }
+            else
+            {
+                ini.parse(iniFile);
+                spdlog::info("Win64: Config file loaded successfully.");
+            }
         }
     }
     else
     {
         ini.parse(iniFile);
+        spdlog::info("Config file loaded successfully.");
     }
 
     // Read ini file
