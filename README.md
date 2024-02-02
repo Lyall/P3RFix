@@ -15,7 +15,7 @@ This is a fix that adds custom resolutions, ultrawide support and more to Person
 - Extract the contents of the release zip in to the the game's binary folder.<br />(e.g. "**XboxGames\Persona 3 Reload\Content**" for Xbox/MS Store or **steamapps\common\P3R**" for Steam).
 
 ### Steam Deck/Linux Additional Instructions
-- Open up the game properties in Steam and add `WINEDLLOVERRIDES="dinput=n,b" %command%` to the launch options.
+- Open up the game properties in Steam and add `WINEDLLOVERRIDES="dsound=n,b" %command%` to the launch options.
 
 ## Configuration
 - See **P3RFix.ini** to adjust settings for the fix.
