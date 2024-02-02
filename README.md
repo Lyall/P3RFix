@@ -1,8 +1,8 @@
-# Persona 3: Reload Fix
+# Persona 3 Reload Fix
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W01UAI9)</br>
 [![Github All Releases](https://img.shields.io/github/downloads/Lyall/P3RFix/total.svg)](https://github.com/Lyall/P3RFix/releases)
 
-This is a fix that adds custom resolutions, ultrawide support and more to Persona 3: Reload.<br />
+This is a fix that adds custom resolutions, ultrawide support and more to Persona 3 Reload.<br />
 
 ## Features
 - Custom resolution support.
@@ -13,6 +13,9 @@ This is a fix that adds custom resolutions, ultrawide support and more to Person
 ## Installation
 - Grab the latest release of P3RFix from [here.](https://github.com/Lyall/P3RFix/releases)
 - Extract the contents of the release zip in to the the game's binary folder.<br />(e.g. "**XboxGames\Persona 3 Reload\Content**" for Xbox/MS Store or **steamapps\common\P3R**" for Steam).
+
+### Steam Deck/Linux Additional Instructions
+- Open up the game properties in Steam and add `WINEDLLOVERRIDES="dinput=n,b" %command%` to the launch options.
 
 ## Configuration
 - See **P3RFix.ini** to adjust settings for the fix.
