@@ -10,7 +10,7 @@ This is a fix that adds custom resolutions, ultrawide support and more to Person
 
 ## Installation
 - Grab the latest release of P3RFix from [here.](https://github.com/Lyall/P3RFix/releases)
-- Extract the contents of the release zip in to the the game folder.<br />(e.g. "**steamapps\common\Persona 3 Reload**" for Steam).
+- Extract the contents of the release zip in to the the game folder.<br />(e.g. "**XboxGames\Persona 3 Reload\Content**" for Xbox/MS Store or **steamapps\common\P3R**" for Steam).
 
 ## Configuration
 - See **P3RFix.ini** to adjust settings for the fix.
