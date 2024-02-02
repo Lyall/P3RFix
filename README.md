@@ -23,7 +23,7 @@ This list will contain bugs which may or may not be fixed.
 
 | ![ezgif-5-7e73acc575](https://github.com/Lyall/P3RFix/assets/695941/56b5088b-1272-4621-9d71-e1bda21337d5) |
 |:--:|
-| Gameplay. |
+| Gameplay |
 
 ## Credits
 [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) for ASI loading. <br />
