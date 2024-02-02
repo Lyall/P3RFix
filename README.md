@@ -24,6 +24,7 @@ Please report any issues you see.
 This list will contain bugs which may or may not be fixed.
 
 - Enabling the fps uncap feature may cause some voice lines to skip.
+- Screen fades/wipes do not span the screen and mask background loading.
 
 ## Screenshots
 
