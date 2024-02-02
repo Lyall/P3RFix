@@ -31,6 +31,7 @@ jobs:
     - run: unzip Ultimate-ASI-Loader_x64.zip -d .\; echo [GlobalSets]`nDontLoadFromDllMain=0 > .\dsound.ini; C:\msys64\usr\bin\wget.exe -O .\UltimateASILoader_LICENSE.md https://raw.githubusercontent.com/ThirteenAG/Ultimate-ASI-Loader/master/license
     - run: mkdir .\zip\P3R\Binaries\WinGDK; mkdir .\zip\P3R\Binaries\Win64
     - run: cp ${{ github.event.repository.name }}.asi .\zip\P3R\Binaries\WinGDK\; cp ${{ github.event.repository.name }}.asi .\zip\P3R\Binaries\Win64\
+    - run: cp ${{ github.event.repository.name }}.ini .\zip\P3R\Binaries\WinGDK\; cp ${{ github.event.repository.name }}.ini .\zip\P3R\Binaries\Win64\
     - run: cp dsound.ini .\zip\P3R\Binaries\WinGDK\; cp dsound.ini .\zip\P3R\Binaries\Win64\
     - run: cp dinput8.dll .\zip\P3R\Binaries\WinGDK\dsound.dll; cp dinput8.dll .\zip\P3R\Binaries\Win64\dsound.dll
     - run: cp UltimateASILoader_LICENSE.md .\zip\P3R\Binaries\WinGDK\; cp UltimateASILoader_LICENSE.md .\zip\P3R\Binaries\Win64\
