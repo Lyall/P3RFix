@@ -89,6 +89,7 @@ void ReadConfig()
         // WinGDK
         if (sExePath.string().find("WinGDK") != string::npos)
         {
+            spdlog::info("WinGDK: WinGDK build detected.");
             std::ifstream iniFile("./P3R/Binaries/WinGDK/" + sConfigFile);
             if (!iniFile)
             {
@@ -104,6 +105,7 @@ void ReadConfig()
         // Win64
         if (sExePath.string().find("Win64") != string::npos)
         {
+            spdlog::info("Win64: Win64 build detected.");
             std::ifstream iniFile("./P3R/Binaries/Win64/" + sConfigFile);
             if (!iniFile)
             {
