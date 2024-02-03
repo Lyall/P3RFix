@@ -182,27 +182,32 @@ void ReadConfig()
 
 void Resolution()
 { 
-    // Add custom resolution
-    uint8_t* ResListScanResult = Memory::PatternScan(baseModule, "20 03 00 00 C2 01 00 00 00 05");
-    if (ResListScanResult)
+    // Apply custom resolution.
+    uint8_t* ApplyResolutionScanResult = Memory::PatternScan(baseModule, "39 ?? ?? ?? ?? 00 75 ?? 48 ?? ?? 48 ?? ?? 20 39 ?? ?? ?? ?? 00 74 ??");
+    if (ApplyResolutionScanResult)
     {
-        for (int i = 0; i < 7; i++)
+        // Need 4 bytes aligned twice
+        static struct Resolution
         {
-            int offset = (i * 0x8);
-            int ResX = *reinterpret_cast<int*>(ResListScanResult + offset);
-            int ResY = *reinterpret_cast<int*>(ResListScanResult + offset + 0x4);
-            spdlog::info("Resolution List: Resolution {} = {}x{}", i, ResX, ResY);
+            int Width = iCustomResX;
+            int Height = iCustomResY;
+        } CustomResolution;
 
-            if (ResX == 800 && ResY == 450)
+
+        spdlog::info("Custom Resolution: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ApplyResolutionScanResult - (uintptr_t)baseModule);
+        static SafetyHookMid ApplyResolutionMidHook{};
+        ApplyResolutionMidHook = safetyhook::create_mid(ApplyResolutionScanResult,
+            [](SafetyHookContext& ctx)
             {
-                Memory::Write((uintptr_t)ResListScanResult + offset, iCustomResX);
-                Memory::Write((uintptr_t)ResListScanResult + offset + 0x4, iCustomResY);
-                spdlog::info("Resolution List: Replaced {}x{} with {}x{}", ResX, ResY, iCustomResX, iCustomResY);
-            }
-        }
+                ctx.rdx = *(uint64_t*)&CustomResolution;
+            });
+    }
+    else if (!ApplyResolutionScanResult)
+    {
+        spdlog::error("Custom Resolution: Pattern scan failed.");
     }
 
-    // Grab current resolution.
+    // Grab current resolution. Needed in case the game is running borderless for example.
     uint8_t* CurrResolutionScanResult = Memory::PatternScan(baseModule, "33 ?? B9 ?? ?? ?? ?? 45 ?? ?? 48 ?? ?? 4A ?? ?? ?? 48 ?? ?? 8B ??");
     if (CurrResolutionScanResult)
     {
