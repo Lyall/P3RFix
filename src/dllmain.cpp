@@ -308,8 +308,13 @@ void HUDFix()
                 {
                     if (fAspectRatio > fNativeAspect)
                     {
-                        ctx.r8 = 0;
-                        ctx.rcx = iCustomResX;
+                        ctx.rcx = iCustomResX;      // HUD Constraint Width
+                        ctx.r8 = 0;                 // HUD Constraint Width Offset
+                    }
+                    else if (fAspectRatio < fNativeAspect)
+                    {
+                        ctx.rax = iCustomResY;      // HUD Constraint Height
+                        ctx.rdx = 0;                // HUD Constraint Height Offset
                     }
                 });
         }
