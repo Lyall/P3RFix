@@ -12,7 +12,7 @@ HMODULE baseModule = GetModuleHandle(NULL);
 // Logger and config setup
 inipp::Ini<char> ini;
 string sFixName = "P3RFix";
-string sFixVer = "1.0";
+string sFixVer = "1.1";
 string sLogFile = "P3RFix.log";
 string sConfigFile = "P3RFix.ini";
 string sExeName;
@@ -184,31 +184,34 @@ void ReadConfig()
 
 void Resolution()
 { 
-    // Apply custom resolution.
-    uint8_t* ApplyResolutionScanResult = Memory::PatternScan(baseModule, "39 ?? ?? ?? ?? 00 75 ?? 48 ?? ?? 48 ?? ?? 20 39 ?? ?? ?? ?? 00 74 ??");
-    if (ApplyResolutionScanResult)
+    if (bCustomResolution)
     {
-        // Need 4 bytes aligned twice
-        static struct Resolution
+        // Apply custom resolution.
+        uint8_t* ApplyResolutionScanResult = Memory::PatternScan(baseModule, "39 ?? ?? ?? ?? 00 75 ?? 48 ?? ?? 48 ?? ?? 20 39 ?? ?? ?? ?? 00 74 ??");
+        if (ApplyResolutionScanResult)
         {
-            int Width = iCustomResX;
-            int Height = iCustomResY;
-        } CustomResolution;
-
-
-        spdlog::info("Custom Resolution: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ApplyResolutionScanResult - (uintptr_t)baseModule);
-        static SafetyHookMid ApplyResolutionMidHook{};
-        ApplyResolutionMidHook = safetyhook::create_mid(ApplyResolutionScanResult,
-            [](SafetyHookContext& ctx)
+            // Need 4 bytes aligned twice
+            static struct Resolution
             {
-                ctx.rdx = *(uint64_t*)&CustomResolution;
-            });
-    }
-    else if (!ApplyResolutionScanResult)
-    {
-        spdlog::error("Custom Resolution: Pattern scan failed.");
-    }
+                int Width = iCustomResX;
+                int Height = iCustomResY;
+            } CustomResolution;
 
+
+            spdlog::info("Custom Resolution: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ApplyResolutionScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid ApplyResolutionMidHook{};
+            ApplyResolutionMidHook = safetyhook::create_mid(ApplyResolutionScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    ctx.rdx = *(uint64_t*)&CustomResolution;
+                });
+        }
+        else if (!ApplyResolutionScanResult)
+        {
+            spdlog::error("Custom Resolution: Pattern scan failed.");
+        }
+    }
+   
     // Grab current resolution. Needed in case the game is running borderless for example.
     uint8_t* CurrResolutionScanResult = Memory::PatternScan(baseModule, "33 ?? B9 ?? ?? ?? ?? 45 ?? ?? 48 ?? ?? 4A ?? ?? ?? 48 ?? ?? 8B ??");
     if (CurrResolutionScanResult)
@@ -327,25 +330,6 @@ void HUDFix()
     }
 }
 
-void FPSCap()
-{
-    if (bFPSCap)
-    {
-        // Set FPS cap
-        uint8_t* FPSCapScanResult = Memory::PatternScan(baseModule, "E9 ?? ?? ?? ?? CC F3 0F ?? ?? ?? ?? 00 00 C3 CC");
-        if (FPSCapScanResult)
-        {
-            spdlog::info("FPS Cap: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)FPSCapScanResult - (uintptr_t)baseModule);
-            Memory::PatchBytes((uintptr_t)FPSCapScanResult + 0x6, "\x0F\x57\xC0\x90\x90\x90\x90\x90", 8);
-            spdlog::info("FPS Cap: Instruction patched.");
-        }
-        else if (!FPSCapScanResult)
-        {
-            spdlog::error("FPS Cap: Pattern scan failed.");
-        }
-    }
-}
-
 DWORD __stdcall Main(void*)
 {
     Logging();
@@ -353,7 +337,6 @@ DWORD __stdcall Main(void*)
     Resolution();
     AspectFOVFix();
     HUDFix();
-    FPSCap();
     return true;
 }
 
