@@ -26,7 +26,6 @@ int iCustomResY;
 bool bHUDFix;
 bool bAspectFix;
 bool bFOVFix;
-float fAdditionalFOV;
 bool bFPSCap;
 
 // Aspect ratio + HUD stuff
@@ -132,7 +131,6 @@ void ReadConfig()
     inipp::get_value(ini.sections["Fix HUD"], "Enabled", bHUDFix);
     inipp::get_value(ini.sections["Fix Aspect Ratio"], "Enabled", bAspectFix);
     inipp::get_value(ini.sections["Fix FOV"], "Enabled", bFOVFix);
-    inipp::get_value(ini.sections["Fix FOV"], "AdditionalFOV", fAdditionalFOV);
 
     // Log config parse
     spdlog::info("Config Parse: bCustomResolution: {}", bCustomResolution);
@@ -142,7 +140,6 @@ void ReadConfig()
     spdlog::info("Config Parse: bHUDFix: {}", bHUDFix);
     spdlog::info("Config Parse: bAspectFix: {}", bAspectFix);
     spdlog::info("Config Parse: bFOVFix: {}", bFOVFix);
-    spdlog::info("Config Parse: fAdditionalFOV: {}", fAdditionalFOV);
     spdlog::info("----------");
 
     // Calculate aspect ratio / use desktop res instead
@@ -251,7 +248,6 @@ void AspectFOVFix()
                     {
                         fov = atanf(tanf(fov * (fPi / 360)) / fNativeAspect * fAspectRatio) * (360 / fPi);
                     }
-                    fov += fAdditionalFOV;
                     ctx.xmm0.f32[0] = fov;
                 });
         }
