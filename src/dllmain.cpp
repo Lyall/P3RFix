@@ -314,7 +314,7 @@ void HUDFix()
                     }
                     else if (fAspectRatio < fNativeAspect)
                     {
-                        ctx.rax = (int)(1920 * fAspectRatio);       // HUD Constraint Height
+                        ctx.rax = (int)(1920 / fAspectRatio);       // HUD Constraint Height
                         ctx.rdx = 0;                                // HUD Constraint Height Offset
                     }
                 });
