@@ -23,7 +23,7 @@ This is a fix that adds custom resolutions, ultrawide support and more to Person
 Please report any issues you see.
 This list will contain bugs which may or may not be fixed.
 
-- Enabling the fps uncap feature may cause some voice lines to skip.
+- Switching between borderless and fullscreen/windowed may display the incorrect resolution until switched back again.
 - Screen fades/wipes do not span the screen and mask background loading.
 
 ## Screenshots
