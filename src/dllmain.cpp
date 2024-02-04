@@ -12,7 +12,7 @@ HMODULE baseModule = GetModuleHandle(NULL);
 // Logger and config setup
 inipp::Ini<char> ini;
 string sFixName = "P3RFix";
-string sFixVer = "1.0.1";
+string sFixVer = "1.0.2";
 string sLogFile = "P3RFix.log";
 string sConfigFile = "P3RFix.ini";
 string sExeName;
