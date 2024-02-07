@@ -170,6 +170,8 @@ void ReadConfig()
     }
 
     // Log aspect ratio stuff
+    spdlog::info("Custom Resolution: iCustomResX: {}", iCustomResX);
+    spdlog::info("Custom Resolution: iCustomResY: {}", iCustomResY);
     spdlog::info("Custom Resolution: fAspectRatio: {}", fAspectRatio);
     spdlog::info("Custom Resolution: fAspectMultiplier: {}", fAspectMultiplier);
     spdlog::info("Custom Resolution: fHUDWidth: {}", fHUDWidth);
