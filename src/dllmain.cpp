@@ -12,7 +12,7 @@ HMODULE baseModule = GetModuleHandle(NULL);
 // Logger and config setup
 inipp::Ini<char> ini;
 string sFixName = "P3RFix";
-string sFixVer = "1.0.2";
+string sFixVer = "1.1.0";
 string sLogFile = "P3RFix.log";
 string sConfigFile = "P3RFix.ini";
 string sExeName;
@@ -20,13 +20,13 @@ filesystem::path sExePath;
 RECT rcDesktop;
 
 // Ini Variables
+int iInjectionDelay;
 bool bCustomResolution;
 int iCustomResX;
 int iCustomResY;
 bool bHUDFix;
 bool bAspectFix;
 bool bFOVFix;
-bool bFPSCap;
 
 // Aspect ratio + HUD stuff
 float fPi = (float)3.141592653;
@@ -124,19 +124,19 @@ void ReadConfig()
     }
 
     // Read ini file
+    inipp::get_value(ini.sections["P3RFix Parameters"], "InjectionDelay", iInjectionDelay);
     inipp::get_value(ini.sections["Custom Resolution"], "Enabled", bCustomResolution);
     inipp::get_value(ini.sections["Custom Resolution"], "Width", iCustomResX);
     inipp::get_value(ini.sections["Custom Resolution"], "Height", iCustomResY);
-    inipp::get_value(ini.sections["Uncap Framerate"], "Enabled", bFPSCap);
     inipp::get_value(ini.sections["Fix HUD"], "Enabled", bHUDFix);
     inipp::get_value(ini.sections["Fix Aspect Ratio"], "Enabled", bAspectFix);
     inipp::get_value(ini.sections["Fix FOV"], "Enabled", bFOVFix);
 
     // Log config parse
+    spdlog::info("Config Parse: iInjectionDelay: {}ms", iInjectionDelay);
     spdlog::info("Config Parse: bCustomResolution: {}", bCustomResolution);
     spdlog::info("Config Parse: iCustomResX: {}", iCustomResX);
     spdlog::info("Config Parse: iCustomResY: {}", iCustomResY);
-    spdlog::info("Config Parse: bFPSCap: {}", bFPSCap);
     spdlog::info("Config Parse: bHUDFix: {}", bHUDFix);
     spdlog::info("Config Parse: bAspectFix: {}", bAspectFix);
     spdlog::info("Config Parse: bFOVFix: {}", bFOVFix);
@@ -223,6 +223,19 @@ void Resolution()
                 iCustomResX = *(int*)(&ctx.r15);
                 iCustomResY = *(int*)(&ctx.r9);
                 fAspectRatio = (float)iCustomResX / iCustomResY;
+
+                // Calculate HUD variables again in case the resolution changed.
+                fHUDWidth = iCustomResY * fNativeAspect;
+                fHUDHeight = (float)iCustomResY;
+                fHUDWidthOffset = (float)(iCustomResX - fHUDWidth) / 2;
+                fHUDHeightOffset = 0;
+                if (fAspectRatio < fNativeAspect)
+                {
+                    fHUDWidth = (float)iCustomResX;
+                    fHUDHeight = (float)iCustomResX / fNativeAspect;
+                    fHUDWidthOffset = 0;
+                    fHUDHeightOffset = (float)(iCustomResY - fHUDHeight) / 2;
+                }
             });
     }
     else if (!CurrResolutionScanResult)
@@ -299,31 +312,245 @@ void HUDFix()
 {
     if (bHUDFix)
     {
-        // Remove aspect constraint on HUD
-        uint8_t* UIAspectScanResult = Memory::PatternScan(baseModule, "F3 ?? ?? ?? ?? ?? 45 ?? ?? ?? 41 ?? ?? ?? 41 ?? ?? ?? 41 ?? ?? ?? 49 ?? ?? ?? ?? ?? 00");
-        if (UIAspectScanResult)
+        // Remove constraints on HUD
+        uint8_t* HUDConstraintsScanResult = Memory::PatternScan(baseModule, "89 ?? ?? ?? F3 ?? ?? ?? ?? 89 ?? ?? ?? F3 0F ?? ?? 44 ?? ?? ?? ?? 0F ?? ?? 89 ?? ?? ?? 0F ?? ??");
+        if (HUDConstraintsScanResult)
         {
-            spdlog::info("UI: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)UIAspectScanResult - (uintptr_t)baseModule);
+            spdlog::info("HUD Constraints: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)HUDConstraintsScanResult - (uintptr_t)baseModule);
 
-            static SafetyHookMid UIAspectMidHook{};
-            UIAspectMidHook = safetyhook::create_mid(UIAspectScanResult + 6,
+            static SafetyHookMid HUDConstraintsMidHook{};
+            HUDConstraintsMidHook = safetyhook::create_mid(HUDConstraintsScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    if (iCustomResX > 1920)
+                    {
+                        ctx.rcx = iCustomResX;
+                    }
+                   
+                    if (iCustomResY > 1080)
+                    {
+                        ctx.rax = iCustomResY;
+                    }
+                });
+
+            static SafetyHookMid HUDConstraints1MidHook{};
+            HUDConstraints1MidHook = safetyhook::create_mid(HUDConstraintsScanResult + 0x11,
+                [](SafetyHookContext& ctx)
+                {
+                    ctx.r8 = 0;
+                    ctx.rdx = 0;
+                });
+        }
+        else if (!HUDConstraintsScanResult)
+        {
+            spdlog::error("HUD Constraints: Pattern scan failed.");
+        }        
+    }
+}
+
+void Fades()
+{
+    if (bHUDFix)
+    {
+        // FadePgColorOut
+        uint8_t* FadePgColorOutScanResult = Memory::PatternScan(baseModule, "89 ?? ?? ?? 33 ?? F3 0F ?? ?? ?? ?? E8 ?? ?? ?? ?? 0F ?? ?? ?? 66 ?? ?? ?? ??");
+        if (FadePgColorOutScanResult)
+        {
+            spdlog::info("Fade Pg Color Out: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)FadePgColorOutScanResult - (uintptr_t)baseModule);
+
+            static SafetyHookMid FadePgColorOut1MidHook{};
+            FadePgColorOut1MidHook = safetyhook::create_mid(FadePgColorOutScanResult,
                 [](SafetyHookContext& ctx)
                 {
                     if (fAspectRatio > fNativeAspect)
                     {
-                        ctx.rcx = (int)iCustomResX;                 // HUD Constraint Width
-                        ctx.r8 = 0;                                 // HUD Constraint Width Offset
+                        ctx.xmm2.f32[0] = -(fHUDWidthOffset * 2);
                     }
                     else if (fAspectRatio < fNativeAspect)
                     {
-                        ctx.rax = (int)(1920 / fAspectRatio);       // HUD Constraint Height
-                        ctx.rdx = 0;                                // HUD Constraint Height Offset
+                        ctx.xmm3.f32[0] = -(fHUDHeightOffset * 2);
+                    }
+                });
+
+            static SafetyHookMid FadePgColorOut2MidHook{};
+            FadePgColorOut2MidHook = safetyhook::create_mid(FadePgColorOutScanResult + 0x42,
+                [](SafetyHookContext& ctx)
+                {
+                    if (fAspectRatio > fNativeAspect)
+                    {
+                        ctx.xmm2.f32[0] = 1080 * fAspectRatio;
+                    }
+                    else if (fAspectRatio < fNativeAspect)
+                    {
+                        ctx.xmm3.f32[0] = -(fHUDHeightOffset * 2);
+                    }
+                });
+
+            static SafetyHookMid FadePgColorOut3MidHook{};
+            FadePgColorOut3MidHook = safetyhook::create_mid(FadePgColorOutScanResult + 0x9E,
+                [](SafetyHookContext& ctx)
+                {
+                    if (fAspectRatio > fNativeAspect)
+                    {
+                        ctx.xmm2.f32[0] = -(fHUDWidthOffset * 2);
+                    }
+                    else if (fAspectRatio < fNativeAspect)
+                    {
+                        ctx.xmm3.f32[0] = 1920 / fAspectRatio;
+                    }
+                });
+
+            static SafetyHookMid FadePgColorOut4MidHook{};
+            FadePgColorOut4MidHook = safetyhook::create_mid(FadePgColorOutScanResult + 0xD9,
+                [](SafetyHookContext& ctx)
+                {
+                    if (fAspectRatio > fNativeAspect)
+                    {
+                        ctx.xmm2.f32[0] = 1080 * fAspectRatio;
+                    }
+                    else if (fAspectRatio < fNativeAspect)
+                    {
+                        ctx.xmm3.f32[0] = 1920 / fAspectRatio;
                     }
                 });
         }
-        else if (!UIAspectScanResult)
+        else if (!FadePgColorOutScanResult)
         {
-            spdlog::error("UI: Pattern scan failed.");
+            spdlog::error("Fade Pg Color Out: Pattern scan failed.");
+        }
+        
+        // FadePgSlide
+        uint8_t* FadePgSlideScanResult = Memory::PatternScan(baseModule, "0F ?? ?? BA 02 00 00 00 F3 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 0F ?? ?? ?? 66 0F ?? ?? ?? ?? ?? 00 66 0F ?? ?? ?? 66 ?? ?? ?? ?? 48 ?? ?? 74 ?? F0 ?? ?? ??");
+        if (FadePgSlideScanResult)
+        {
+            spdlog::info("Fade Pg Slide: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)FadePgSlideScanResult - (uintptr_t)baseModule);
+
+            static SafetyHookMid FadePgSlide1MidHook{};
+            FadePgSlide1MidHook = safetyhook::create_mid(FadePgSlideScanResult + 0x3,
+                [](SafetyHookContext& ctx)
+                {
+                    if (fAspectRatio > fNativeAspect)
+                    {
+                        ctx.xmm2.f32[0] = -(fHUDWidthOffset * 2);
+                    }
+                    else if (fAspectRatio < fNativeAspect)
+                    {
+                        ctx.xmm3.f32[0] = -(fHUDHeightOffset * 2);
+                    }
+                });
+
+            static SafetyHookMid FadePgSlide2MidHook{};
+            FadePgSlide2MidHook = safetyhook::create_mid(FadePgSlideScanResult + 0x50,
+                [](SafetyHookContext& ctx)
+                {
+                    if (fAspectRatio > fNativeAspect)
+                    {
+                        ctx.xmm2.f32[0] = 1080 * fAspectRatio;
+                    }
+                    else if (fAspectRatio < fNativeAspect)
+                    {
+                        ctx.xmm3.f32[0] = -(fHUDHeightOffset * 2);
+                    }
+                });
+
+            static SafetyHookMid FadePgSlide3MidHook{};
+            FadePgSlide3MidHook = safetyhook::create_mid(FadePgSlideScanResult + 0xA2,
+                [](SafetyHookContext& ctx)
+                {
+                    if (fAspectRatio > fNativeAspect)
+                    {
+                        ctx.xmm2.f32[0] = -(fHUDWidthOffset * 2);
+                    }
+                    else if (fAspectRatio < fNativeAspect)
+                    {
+                        ctx.xmm3.f32[0] = 1920 / fAspectRatio;
+                    }
+                });
+
+            static SafetyHookMid FadePgSlide4MidHook{};
+            FadePgSlide4MidHook = safetyhook::create_mid(FadePgSlideScanResult + 0xEB,
+                [](SafetyHookContext& ctx)
+                {
+                    if (fAspectRatio > fNativeAspect)
+                    {
+                        ctx.xmm2.f32[0] = 1080 * fAspectRatio;
+                    }
+                    else if (fAspectRatio < fNativeAspect)
+                    {
+                        ctx.xmm3.f32[0] = 1920 / fAspectRatio;
+                    }
+                });
+        }
+        else if (!FadePgSlideScanResult)
+        {
+            spdlog::error("Fade Pg Slide: Pattern scan failed.");
+        }
+
+        // FadePgSlideVertical
+        uint8_t* FadePgSlideVerticalScanResult = Memory::PatternScan(baseModule, "0F 28 ?? BA 06 00 00 00 F3 0F ?? ?? ?? ?? E8 ?? ?? ?? ?? 0F ?? ?? ?? 66 ?? ?? ?? ?? ?? ?? 00 66 ?? ?? ?? 08 66 ?? ?? ?? ?? 48 ?? ?? 74 ?? F0 ?? ?? ?? F3 0F ?? ?? ?? ?? 48 ?? ?? ?? ?? ?? 00 F3 0F ?? ?? ?? ?? 0F 28 ??");
+        if (FadePgSlideVerticalScanResult)
+        {
+            spdlog::info("Fade Pg Slide Verical: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)FadePgSlideVerticalScanResult - (uintptr_t)baseModule);
+
+            static SafetyHookMid FadePgSlideVertical1MidHook{};
+            FadePgSlideVertical1MidHook = safetyhook::create_mid(FadePgSlideVerticalScanResult + 0x3,
+                [](SafetyHookContext& ctx)
+                {
+                    if (fAspectRatio > fNativeAspect)
+                    {
+                        ctx.xmm2.f32[0] = -(fHUDWidthOffset * 2);
+                    }
+                    else if (fAspectRatio < fNativeAspect)
+                    {
+                        ctx.xmm3.f32[0] = -(fHUDHeightOffset * 2);
+                    }
+                });
+
+            static SafetyHookMid FadePgSlideVertical2MidHook{};
+            FadePgSlideVertical2MidHook = safetyhook::create_mid(FadePgSlideVerticalScanResult + 0x50,
+                [](SafetyHookContext& ctx)
+                {
+                    if (fAspectRatio > fNativeAspect)
+                    {
+                        ctx.xmm2.f32[0] = 1080 * fAspectRatio;
+                    }
+                    else if (fAspectRatio < fNativeAspect)
+                    {
+                        ctx.xmm3.f32[0] = -(fHUDHeightOffset * 2);
+                    }
+                });
+
+            static SafetyHookMid FadePgSlideVertical3MidHook{};
+            FadePgSlideVertical3MidHook = safetyhook::create_mid(FadePgSlideVerticalScanResult + 0x9D,
+                [](SafetyHookContext& ctx)
+                {
+                    if (fAspectRatio > fNativeAspect)
+                    {
+                        ctx.xmm2.f32[0] = -(fHUDWidthOffset * 2);
+                    }
+                    else if (fAspectRatio < fNativeAspect)
+                    {
+                        ctx.xmm3.f32[0] = 1920 / fAspectRatio;
+                    }
+                });
+
+            static SafetyHookMid FadePgSlideVertical4MidHook{};
+            FadePgSlideVertical4MidHook = safetyhook::create_mid(FadePgSlideVerticalScanResult + 0xEB,
+                [](SafetyHookContext& ctx)
+                {
+                    if (fAspectRatio > fNativeAspect)
+                    {
+                        ctx.xmm2.f32[0] = 1080 * fAspectRatio;
+                    }
+                    else if (fAspectRatio < fNativeAspect)
+                    {
+                        ctx.xmm3.f32[0] = 1920 / fAspectRatio;
+                    }
+                });
+        }
+        else if (!FadePgSlideVerticalScanResult)
+        {
+            spdlog::error("Fade Pg Slide Vertical: Pattern scan failed.");
         }
     }
 }
@@ -332,9 +559,11 @@ DWORD __stdcall Main(void*)
 {
     Logging();
     ReadConfig();
+    Sleep(iInjectionDelay);
     Resolution();
     AspectFOVFix();
     HUDFix();
+    Fades();
     return true;
 }
 
