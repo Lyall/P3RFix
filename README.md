@@ -8,10 +8,12 @@ This is a fix that adds custom resolutions, ultrawide support and more to Person
 - Custom resolution support.
 - Ultrawide/narrow aspect ratio support.
 - FOV correction when using ultrawide displays.
+- Configurable intro skip.
+- Render scale override.
 
 ## Installation
 - Grab the latest release of P3RFix from [here.](https://github.com/Lyall/P3RFix/releases)
-- Extract the contents of the release zip in to the the game's binary folder.<br />(e.g. "**XboxGames\Persona 3 Reload\Content**" for Xbox/MS Store or **steamapps\common\P3R**" for Steam).
+- Extract the contents of the release zip in to the the game's binary folder.<br />(e.g. "**XboxGames\Persona 3 Reload\Content**" for Xbox/MS Store or "**steamapps\common\P3R**" for Steam).
 
 ### Steam Deck/Linux Additional Instructions
 🚩**You do not need to do this if you are using Windows!**
