@@ -213,11 +213,13 @@ void IntroSkip()
         {
             // Skip over network
             Memory::PatchBytes((uintptr_t)CautionSkipScanResult + 0x3, "\xB0\x03", 2);
+            spdlog::info("Caution Skip: Skipped over network dialog.");
         }
         else 
         {
             // Skip to network
             Memory::PatchBytes((uintptr_t)CautionSkipScanResult + 0x3, "\xB0\x02", 2);
+            spdlog::info("Caution Skip: Skipped caution to network dialog.");
         }   
     }
     else if (!CautionSkipScanResult)
@@ -235,12 +237,14 @@ void IntroSkip()
         {
             // Press any key screen
             Memory::PatchBytes((uintptr_t)IntroSkipScanResult, "\xB0\x05", 2);
+            spdlog::info("Intro Skip: Skipped to 'press any key' screen.");
         }
         
         if (bSkipToLoadSave)
         {
             // Load menu 
             Memory::PatchBytes((uintptr_t)IntroSkipScanResult, "\xB0\x08", 2);
+            spdlog::info("Intro Skip: Skipped to load save menu.");
         } 
     }
     else if (!IntroSkipScanResult)
