@@ -27,6 +27,8 @@ int iCustomResY;
 bool bHUDFix;
 bool bAspectFix;
 bool bFOVFix;
+bool bScreenPercentage;
+int iScreenPercentage;
 
 // Aspect ratio + HUD stuff
 float fPi = (float)3.141592653;
@@ -131,6 +133,8 @@ void ReadConfig()
     inipp::get_value(ini.sections["Fix HUD"], "Enabled", bHUDFix);
     inipp::get_value(ini.sections["Fix Aspect Ratio"], "Enabled", bAspectFix);
     inipp::get_value(ini.sections["Fix FOV"], "Enabled", bFOVFix);
+    inipp::get_value(ini.sections["Screen Percentage"], "Enabled", bScreenPercentage);
+    inipp::get_value(ini.sections["Screen Percentage"], "Value", iScreenPercentage);
 
     // Log config parse
     spdlog::info("Config Parse: iInjectionDelay: {}ms", iInjectionDelay);
@@ -140,6 +144,13 @@ void ReadConfig()
     spdlog::info("Config Parse: bHUDFix: {}", bHUDFix);
     spdlog::info("Config Parse: bAspectFix: {}", bAspectFix);
     spdlog::info("Config Parse: bFOVFix: {}", bFOVFix);
+    spdlog::info("Config Parse: bScreenPercentage: {}", bScreenPercentage);
+    spdlog::info("Config Parse: iScreenPercentage: {}", iScreenPercentage);
+    if (iScreenPercentage < 10 || iScreenPercentage > 400)
+    {
+        iScreenPercentage = std::clamp(iScreenPercentage, 10, 400);
+        spdlog::info("Config Parse: iScreenPercentage value invalid, clamped to {}", iScreenPercentage);
+    }
     spdlog::info("----------");
 
     // Calculate aspect ratio / use desktop res instead
@@ -555,6 +566,30 @@ void Fades()
     }
 }
 
+void GraphicalTweaks()
+{
+    if (bScreenPercentage)
+    {
+        // Screen Percentage
+        uint8_t* ScreenPercentageScanResult = Memory::PatternScan(baseModule, "0F ?? ?? F3 0F ?? ?? ?? 0F ?? ?? F3 0F ?? ?? ?? ?? ?? ?? 0F ?? ?? 77 ?? F3 0F ?? ?? ?? ?? ?? ?? 48 ?? ?? ?? ?? 48 ?? ?? 20 5F C3");
+        if (ScreenPercentageScanResult)
+        {
+            spdlog::info("Aspect Ratio: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ScreenPercentageScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid ScreenPercentageMidHook{};
+            ScreenPercentageMidHook = safetyhook::create_mid(ScreenPercentageScanResult + 0x3,
+                [](SafetyHookContext& ctx)
+                {
+                    *reinterpret_cast<float*>(ctx.rdi + (ctx.rbx*4)) = (float)iScreenPercentage;
+                });
+
+        }
+        else if (!ScreenPercentageScanResult)
+        {
+            spdlog::error("Aspect Ratio: Pattern scan failed.");
+        }
+    }
+}
+
 DWORD __stdcall Main(void*)
 {
     Logging();
@@ -564,6 +599,7 @@ DWORD __stdcall Main(void*)
     AspectFOVFix();
     HUDFix();
     Fades();
+    GraphicalTweaks();
     return true;
 }
 
