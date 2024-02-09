@@ -12,7 +12,7 @@ HMODULE baseModule = GetModuleHandle(NULL);
 // Logger and config setup
 inipp::Ini<char> ini;
 string sFixName = "P3RFix";
-string sFixVer = "1.1.0";
+string sFixVer = "1.1.1";
 string sLogFile = "P3RFix.log";
 string sConfigFile = "P3RFix.ini";
 string sExeName;
@@ -29,6 +29,9 @@ bool bAspectFix;
 bool bFOVFix;
 bool bScreenPercentage;
 int iScreenPercentage;
+bool bSkipLogos;
+bool bSkipNetwork;
+bool bSkipToLoadSave;
 
 // Aspect ratio + HUD stuff
 float fPi = (float)3.141592653;
@@ -135,6 +138,9 @@ void ReadConfig()
     inipp::get_value(ini.sections["Fix FOV"], "Enabled", bFOVFix);
     inipp::get_value(ini.sections["Screen Percentage"], "Enabled", bScreenPercentage);
     inipp::get_value(ini.sections["Screen Percentage"], "Value", iScreenPercentage);
+    inipp::get_value(ini.sections["Intro Skip"], "SkipLogos", bSkipLogos);
+    inipp::get_value(ini.sections["Intro Skip"], "SkipNetwork", bSkipNetwork);
+    inipp::get_value(ini.sections["Intro Skip"], "SkipToLoadSave", bSkipToLoadSave);
 
     // Log config parse
     spdlog::info("Config Parse: iInjectionDelay: {}ms", iInjectionDelay);
@@ -151,6 +157,9 @@ void ReadConfig()
         iScreenPercentage = std::clamp(iScreenPercentage, 10, 400);
         spdlog::info("Config Parse: iScreenPercentage value invalid, clamped to {}", iScreenPercentage);
     }
+    spdlog::info("Config Parse: bSkipLogos: {}", bSkipLogos);
+    spdlog::info("Config Parse: bSkipNetwork: {}", bSkipNetwork);
+    spdlog::info("Config Parse: bSkipToLoadSave: {}", bSkipToLoadSave);
     spdlog::info("----------");
 
     // Calculate aspect ratio / use desktop res instead
@@ -190,6 +199,54 @@ void ReadConfig()
     spdlog::info("Custom Resolution: fHUDWidthOffset: {}", fHUDWidthOffset);
     spdlog::info("Custom Resolution: fHUDHeightOffset: {}", fHUDHeightOffset);
     spdlog::info("----------");
+}
+
+void IntroSkip()
+{
+    // Skip caution
+    uint8_t* CautionSkipScanResult = Memory::PatternScan(baseModule, "FF ?? ?? 32 C0 48 ?? ?? ?? ?? 48 ?? ?? ?? ?? 0F ?? ?? ?? ?? 48 ?? ?? ?? 5F C3");
+    if (CautionSkipScanResult)
+    {
+        spdlog::info("Caution Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)CautionSkipScanResult - (uintptr_t)baseModule);
+
+        if (bSkipNetwork)
+        {
+            // Skip over network
+            Memory::PatchBytes((uintptr_t)CautionSkipScanResult + 0x3, "\xB0\x03", 2);
+        }
+        else 
+        {
+            // Skip to network
+            Memory::PatchBytes((uintptr_t)CautionSkipScanResult + 0x3, "\xB0\x02", 2);
+        }   
+    }
+    else if (!CautionSkipScanResult)
+    {
+        spdlog::error("Caution Skip: Pattern scan failed.");
+    }
+
+    // Skip to menu after network option
+    uint8_t* IntroSkipScanResult = Memory::PatternScan(baseModule, "B0 03 0F ?? ?? ?? ?? ?? 00 00 44 ?? ?? ?? ?? ?? ?? 00 00");
+    if (IntroSkipScanResult)
+    {
+        spdlog::info("Intro Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)IntroSkipScanResult - (uintptr_t)baseModule);
+
+        if (bSkipLogos)
+        {
+            // Press any key screen
+            Memory::PatchBytes((uintptr_t)IntroSkipScanResult, "\xB0\x05", 2);
+        }
+        
+        if (bSkipToLoadSave)
+        {
+            // Load menu 
+            Memory::PatchBytes((uintptr_t)IntroSkipScanResult, "\xB0\x08", 2);
+        } 
+    }
+    else if (!IntroSkipScanResult)
+    {
+        spdlog::error("Intro Skip: Pattern scan failed.");
+    }
 }
 
 void Resolution()
@@ -595,6 +652,7 @@ DWORD __stdcall Main(void*)
     Logging();
     ReadConfig();
     Sleep(iInjectionDelay);
+    IntroSkip();
     Resolution();
     AspectFOVFix();
     HUDFix();
