@@ -7,7 +7,7 @@ This is a fix that adds custom resolutions, ultrawide support and more to Person
 ## Features
 - Custom resolution support.
 - Ultrawide/narrow aspect ratio support.
-- FOV correction when using ultrawide displays.
+- Correct FOV at any aspect ratio.
 - Configurable intro skip.
 - Render scale override.
 
