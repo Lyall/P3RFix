@@ -8,6 +8,8 @@ This is a fix that adds custom resolutions, ultrawide support and more to Person
 - Custom resolution support.
 - Ultrawide/narrow aspect ratio support.
 - FOV correction when using ultrawide displays.
+- Configurable intro skip.
+- Render scale override.
 
 ## Installation
 - Grab the latest release of P3RFix from [here.](https://github.com/Lyall/P3RFix/releases)
