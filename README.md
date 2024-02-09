@@ -25,6 +25,7 @@ Please report any issues you see.
 This list will contain bugs which may or may not be fixed.
 
 - Switching between borderless and fullscreen/windowed may display the incorrect resolution until switched back again.
+- Some screen fades/transitions may not span the screen.
 
 ## Screenshots
 
