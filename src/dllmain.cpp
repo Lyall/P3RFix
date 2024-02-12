@@ -635,7 +635,7 @@ void GraphicalTweaks()
         uint8_t* ScreenPercentageScanResult = Memory::PatternScan(baseModule, "0F ?? ?? F3 0F ?? ?? ?? 0F ?? ?? F3 0F ?? ?? ?? ?? ?? ?? 0F ?? ?? 77 ?? F3 0F ?? ?? ?? ?? ?? ?? 48 ?? ?? ?? ?? 48 ?? ?? 20 5F C3");
         if (ScreenPercentageScanResult)
         {
-            spdlog::info("Aspect Ratio: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ScreenPercentageScanResult - (uintptr_t)baseModule);
+            spdlog::info("Screen Percentage: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ScreenPercentageScanResult - (uintptr_t)baseModule);
             static SafetyHookMid ScreenPercentageMidHook{};
             ScreenPercentageMidHook = safetyhook::create_mid(ScreenPercentageScanResult + 0x3,
                 [](SafetyHookContext& ctx)
@@ -646,7 +646,7 @@ void GraphicalTweaks()
         }
         else if (!ScreenPercentageScanResult)
         {
-            spdlog::error("Aspect Ratio: Pattern scan failed.");
+            spdlog::error("Screen Percentage: Pattern scan failed.");
         }
     }
 }
