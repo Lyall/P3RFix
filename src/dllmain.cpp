@@ -32,6 +32,9 @@ int iScreenPercentage;
 bool bSkipLogos;
 bool bSkipNetwork;
 bool bSkipToLoadSave;
+bool bUncapMenuFPS;
+bool bAdjustFPSCap;
+float fFramerateCap;
 
 // Aspect ratio + HUD stuff
 float fPi = (float)3.141592653;
@@ -141,12 +144,21 @@ void ReadConfig()
     inipp::get_value(ini.sections["Intro Skip"], "SkipLogos", bSkipLogos);
     inipp::get_value(ini.sections["Intro Skip"], "SkipNetwork", bSkipNetwork);
     inipp::get_value(ini.sections["Intro Skip"], "SkipToLoadSave", bSkipToLoadSave);
+    inipp::get_value(ini.sections["FPS Cap"], "UncapMenuFPS", bUncapMenuFPS);
+    inipp::get_value(ini.sections["FPS Cap"], "AdjustFPSCap", bAdjustFPSCap);
+    inipp::get_value(ini.sections["FPS Cap"], "Framerate", fFramerateCap);
 
     // Log config parse
     spdlog::info("Config Parse: iInjectionDelay: {}ms", iInjectionDelay);
     spdlog::info("Config Parse: bCustomResolution: {}", bCustomResolution);
     spdlog::info("Config Parse: iCustomResX: {}", iCustomResX);
     spdlog::info("Config Parse: iCustomResY: {}", iCustomResY);
+    spdlog::info("Config Parse: bSkipLogos: {}", bSkipLogos);
+    spdlog::info("Config Parse: bSkipNetwork: {}", bSkipNetwork);
+    spdlog::info("Config Parse: bSkipToLoadSave: {}", bSkipToLoadSave);
+    spdlog::info("Config Parse: bUncapMenuFPS: {}", bUncapMenuFPS);
+    spdlog::info("Config Parse: bAdjustFPSCap: {}", bAdjustFPSCap);
+    spdlog::info("Config Parse: fFramerateCap: {}", fFramerateCap);
     spdlog::info("Config Parse: bHUDFix: {}", bHUDFix);
     spdlog::info("Config Parse: bAspectFix: {}", bAspectFix);
     spdlog::info("Config Parse: bFOVFix: {}", bFOVFix);
@@ -157,9 +169,6 @@ void ReadConfig()
         iScreenPercentage = std::clamp(iScreenPercentage, 10, 400);
         spdlog::info("Config Parse: iScreenPercentage value invalid, clamped to {}", iScreenPercentage);
     }
-    spdlog::info("Config Parse: bSkipLogos: {}", bSkipLogos);
-    spdlog::info("Config Parse: bSkipNetwork: {}", bSkipNetwork);
-    spdlog::info("Config Parse: bSkipToLoadSave: {}", bSkipToLoadSave);
     spdlog::info("----------");
 
     // Calculate aspect ratio / use desktop res instead
@@ -645,6 +654,44 @@ void GraphicalTweaks()
 
         }
         else if (!ScreenPercentageScanResult)
+        {
+            spdlog::error("Screen Percentage: Pattern scan failed.");
+        }
+    }
+
+    if (bUncapMenuFPS)
+    {
+        // Menu 60 FPS Cap
+        uint8_t* MenuFPSCapScanResult = Memory::PatternScan(baseModule, "3B ?? 74 ?? E8 ?? ?? ?? ?? 48 ?? ?? 41 ?? 01 8B ?? E8 ?? ?? ?? ??");
+        if (MenuFPSCapScanResult)
+        {
+            spdlog::info("Menu FPS Cap: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)MenuFPSCapScanResult - (uintptr_t)baseModule);
+            Memory::PatchBytes((uintptr_t)MenuFPSCapScanResult + 0x2, "\xEB", 1);
+            spdlog::info("Menu FPS Cap: Patched instruction.");
+
+        }
+        else if (!MenuFPSCapScanResult)
+        {
+            spdlog::error("Menu FPS Cap: Pattern scan failed.");
+        }
+    }
+
+    if (bAdjustFPSCap)
+    {
+        // FPS Cap
+        uint8_t* FPSCapScanResult = Memory::PatternScan(baseModule, "3B ?? ?? ?? ?? ?? 0F ?? ?? F3 0F ?? ?? ?? EB ?? 0F ?? ?? 48 ?? ?? ?? ?? 0F ?? ?? ?? ??");
+        if (FPSCapScanResult)
+        {
+            spdlog::info("Screen Percentage: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)FPSCapScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid FPSCapMidHook{};
+            FPSCapMidHook = safetyhook::create_mid(FPSCapScanResult + 0x13,
+                [](SafetyHookContext& ctx)
+                {
+                    ctx.xmm0.f32[0] = fFramerateCap;
+                });
+
+        }
+        else if (!FPSCapScanResult)
         {
             spdlog::error("Screen Percentage: Pattern scan failed.");
         }
