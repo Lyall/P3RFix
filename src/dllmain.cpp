@@ -741,26 +741,9 @@ void GraphicalTweaks()
             spdlog::error("Render Texture 2D Resolution: Pattern scan failed.");
         }
     }
-
-    if (!bPauseOnFocusLoss)
-    {
-        // Pause on focus loss
-        uint8_t* WindowFocusScanResult = Memory::PatternScan(baseModule, "83 ?? ?? ?? 00 48 ?? ?? ?? 48 ?? ?? 0F ?? ?? FF ?? 38 ?? 00 00");
-        if (WindowFocusScanResult)
-        {
-            spdlog::info("Window Focus: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)WindowFocusScanResult - (uintptr_t)baseModule);
-            Memory::PatchBytes((uintptr_t)WindowFocusScanResult + 0x4, "\x7F", 1);
-            spdlog::info("Window Focus: Patched instruction.");
-
-        }
-        else if (!WindowFocusScanResult)
-        {
-            spdlog::error("Window Focus: Pattern scan failed.");
-        }
-    }
 }
 
-void FramerateCap()
+void Framerate()
 {
     if (bUncapMenuFPS)
     {
@@ -801,6 +784,26 @@ void FramerateCap()
     }
 }
 
+void Miscellaneous()
+{
+    if (!bPauseOnFocusLoss)
+    {
+        // Pause on focus loss
+        uint8_t* WindowFocusScanResult = Memory::PatternScan(baseModule, "83 ?? ?? ?? 00 48 ?? ?? ?? 48 ?? ?? 0F ?? ?? FF ?? 38 ?? 00 00");
+        if (WindowFocusScanResult)
+        {
+            spdlog::info("Window Focus: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)WindowFocusScanResult - (uintptr_t)baseModule);
+            Memory::PatchBytes((uintptr_t)WindowFocusScanResult + 0x4, "\x7F", 1);
+            spdlog::info("Window Focus: Patched instruction.");
+
+        }
+        else if (!WindowFocusScanResult)
+        {
+            spdlog::error("Window Focus: Pattern scan failed.");
+        }
+    }
+}
+
 DWORD __stdcall Main(void*)
 {
     Logging();
@@ -812,7 +815,8 @@ DWORD __stdcall Main(void*)
     HUDFix();
     Fades();
     GraphicalTweaks();
-    FramerateCap();
+    Framerate();
+    Miscellaneous();
     return true;
 }
 
