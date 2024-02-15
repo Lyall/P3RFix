@@ -718,7 +718,7 @@ void GraphicalTweaks()
 							}
 
 							if (iRenTexSizeX == 1920 && iRenTexSizeY == 1080) {
-								// Seems to affect pause menu screens, has some minor bugs in transitions
+                                // Seems to affect pause menu screens, has some minor bugs in transitions
                                 float fRenderScale = fScreenPercentage / 100.0f;
                                 iRenTexSizeX = iCustomResX * fRenderScale;
                                 iRenTexSizeY = iCustomResY * fRenderScale;
@@ -734,7 +734,7 @@ void GraphicalTweaks()
                                     iRenTexSizeX = iCustomResX * fRenderScale;
                                     iRenTexSizeY = fHUDHeight * fRenderScale;
                                 }
-								spdlog::info("Render Texture 2D screen percent: {:f}, {:d}x{:d}", fRenderScale, iCustomResX, iCustomResY);
+                                spdlog::info("Render Texture 2D screen percent: {:f}, {:d}x{:d}", fRenderScale, iCustomResX, iCustomResY);
 							}
 							else if (iRenTexSizeX > iRenTexSizeY) {
 								// generic X > Y
