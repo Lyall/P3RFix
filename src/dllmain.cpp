@@ -765,15 +765,15 @@ void FramerateCap()
     if (bUncapMenuFPS)
     {
         // Menu 60 FPS Cap
-        uint8_t* WindowFocusScanResult = Memory::PatternScan(baseModule, "3B ?? 74 ?? E8 ?? ?? ?? ?? 48 ?? ?? 41 ?? 01 8B ?? E8 ?? ?? ?? ??");
-        if (WindowFocusScanResult)
+        uint8_t* MenuFPSCapScanResult = Memory::PatternScan(baseModule, "3B ?? 74 ?? E8 ?? ?? ?? ?? 48 ?? ?? 41 ?? 01 8B ?? E8 ?? ?? ?? ??");
+        if (MenuFPSCapScanResult)
         {
-            spdlog::info("Menu FPS Cap: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)WindowFocusScanResult - (uintptr_t)baseModule);
-            Memory::PatchBytes((uintptr_t)WindowFocusScanResult + 0x2, "\xEB", 1);
+            spdlog::info("Menu FPS Cap: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)MenuFPSCapScanResult - (uintptr_t)baseModule);
+            Memory::PatchBytes((uintptr_t)MenuFPSCapScanResult + 0x2, "\xEB", 1);
             spdlog::info("Menu FPS Cap: Patched instruction.");
 
         }
-        else if (!WindowFocusScanResult)
+        else if (!MenuFPSCapScanResult)
         {
             spdlog::error("Menu FPS Cap: Pattern scan failed.");
         }
