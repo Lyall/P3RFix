@@ -12,7 +12,7 @@ HMODULE baseModule = GetModuleHandle(NULL);
 // Logger and config setup
 inipp::Ini<char> ini;
 string sFixName = "P3RFix";
-string sFixVer = "1.1.1";
+string sFixVer = "1.1.2";
 string sLogFile = "P3RFix.log";
 string sConfigFile = "P3RFix.ini";
 string sExeName;
@@ -27,14 +27,16 @@ int iCustomResY;
 bool bHUDFix;
 bool bAspectFix;
 bool bFOVFix;
-bool bScreenPercentage;
-int iScreenPercentage;
 bool bSkipLogos;
 bool bSkipNetwork;
 bool bSkipToLoadSave;
 bool bUncapMenuFPS;
 bool bAdjustFPSCap;
 float fFramerateCap;
+bool bScreenPercentage;
+float fScreenPercentage;
+bool bRenTexResMulti;
+float fRenTexResMulti;
 
 // Aspect ratio + HUD stuff
 float fPi = (float)3.141592653;
@@ -138,15 +140,17 @@ void ReadConfig()
     inipp::get_value(ini.sections["Custom Resolution"], "Height", iCustomResY);
     inipp::get_value(ini.sections["Fix HUD"], "Enabled", bHUDFix);
     inipp::get_value(ini.sections["Fix Aspect Ratio"], "Enabled", bAspectFix);
-    inipp::get_value(ini.sections["Fix FOV"], "Enabled", bFOVFix);
-    inipp::get_value(ini.sections["Screen Percentage"], "Enabled", bScreenPercentage);
-    inipp::get_value(ini.sections["Screen Percentage"], "Value", iScreenPercentage);
     inipp::get_value(ini.sections["Intro Skip"], "SkipLogos", bSkipLogos);
     inipp::get_value(ini.sections["Intro Skip"], "SkipNetwork", bSkipNetwork);
     inipp::get_value(ini.sections["Intro Skip"], "SkipToLoadSave", bSkipToLoadSave);
     inipp::get_value(ini.sections["FPS Cap"], "UncapMenuFPS", bUncapMenuFPS);
     inipp::get_value(ini.sections["FPS Cap"], "AdjustFPSCap", bAdjustFPSCap);
     inipp::get_value(ini.sections["FPS Cap"], "Framerate", fFramerateCap);
+    inipp::get_value(ini.sections["Fix FOV"], "Enabled", bFOVFix);
+    inipp::get_value(ini.sections["Screen Percentage"], "Enabled", bScreenPercentage);
+    inipp::get_value(ini.sections["Screen Percentage"], "Value", fScreenPercentage);
+    inipp::get_value(ini.sections["Render Texture Resolution"], "Enabled", bRenTexResMulti);
+    inipp::get_value(ini.sections["Render Texture Resolution"], "Multiplier", fRenTexResMulti);
 
     // Log config parse
     spdlog::info("Config Parse: iInjectionDelay: {}ms", iInjectionDelay);
@@ -163,11 +167,18 @@ void ReadConfig()
     spdlog::info("Config Parse: bAspectFix: {}", bAspectFix);
     spdlog::info("Config Parse: bFOVFix: {}", bFOVFix);
     spdlog::info("Config Parse: bScreenPercentage: {}", bScreenPercentage);
-    spdlog::info("Config Parse: iScreenPercentage: {}", iScreenPercentage);
-    if (iScreenPercentage < 10 || iScreenPercentage > 400)
+    spdlog::info("Config Parse: fScreenPercentage: {}", fScreenPercentage);
+    if (fScreenPercentage < (float)10 || fScreenPercentage > (float)400)
     {
-        iScreenPercentage = std::clamp(iScreenPercentage, 10, 400);
-        spdlog::info("Config Parse: iScreenPercentage value invalid, clamped to {}", iScreenPercentage);
+        fScreenPercentage = std::clamp(fScreenPercentage, (float)10, (float)400);
+        spdlog::info("Config Parse: fScreenPercentage value invalid, clamped to {}", fScreenPercentage);
+    }
+    spdlog::info("Config Parse: bRenTexResMulti: {}", bRenTexResMulti);
+    spdlog::info("Config Parse: fRenTexResMulti: {}", fRenTexResMulti);
+    if (fRenTexResMulti < (float)0 || fRenTexResMulti >(float)10)
+    {
+        fRenTexResMulti = std::clamp(fRenTexResMulti, (float)0, (float)10);
+        spdlog::info("Config Parse: fRenTexResMulti value invalid, clamped to {}", fRenTexResMulti);
     }
     spdlog::info("----------");
 
@@ -638,18 +649,33 @@ void Fades()
 
 void GraphicalTweaks()
 {
-    if (bScreenPercentage)
-    {
         // Screen Percentage
         uint8_t* ScreenPercentageScanResult = Memory::PatternScan(baseModule, "0F ?? ?? F3 0F ?? ?? ?? 0F ?? ?? F3 0F ?? ?? ?? ?? ?? ?? 0F ?? ?? 77 ?? F3 0F ?? ?? ?? ?? ?? ?? 48 ?? ?? ?? ?? 48 ?? ?? 20 5F C3");
         if (ScreenPercentageScanResult)
         {
+            static bool bRenTexMultiHasChanged = false;
             spdlog::info("Screen Percentage: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ScreenPercentageScanResult - (uintptr_t)baseModule);
+
             static SafetyHookMid ScreenPercentageMidHook{};
             ScreenPercentageMidHook = safetyhook::create_mid(ScreenPercentageScanResult + 0x3,
                 [](SafetyHookContext& ctx)
                 {
-                    *reinterpret_cast<float*>(ctx.rdi + (ctx.rbx*4)) = (float)iScreenPercentage;
+                    if (bScreenPercentage)
+                    {
+                        *reinterpret_cast<float*>(ctx.rdi + (ctx.rbx * 4)) = (float)fScreenPercentage;
+                    }
+                    else
+                    {
+                        // Grab screen percentage value if not applied by user.
+                        fScreenPercentage = *reinterpret_cast<float*>(ctx.rdi + (ctx.rbx * 4));
+                    }
+
+                    if (fRenTexResMulti == (float)0 || bRenTexMultiHasChanged)
+                    {
+                        // Calculate optimal resolution multiplier assuming 1080p was the intended target.
+                        fRenTexResMulti = (float)(iCustomResY * (fScreenPercentage / 100)) / 1080;
+                        bRenTexMultiHasChanged = true;
+                    }
                 });
 
         }
@@ -657,8 +683,39 @@ void GraphicalTweaks()
         {
             spdlog::error("Screen Percentage: Pattern scan failed.");
         }
-    }
 
+    if (bRenTexResMulti)
+    {
+        // Render Texture 2D Resolution
+        uint8_t* RenTex2DScanResult = Memory::PatternScan(baseModule, "8B ?? ?? ?? 00 00 44 ?? ?? ?? ?? ?? ?? 41 ?? ?? 8B ?? ?? ?? 00 00 44 ?? ?? ?? 66 ?? ?? ??");
+        if (RenTex2DScanResult)
+        {
+            spdlog::info("Render Texture 2D Resolution: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RenTex2DScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid RenTex2DMidHook{};
+            RenTex2DMidHook = safetyhook::create_mid(RenTex2DScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    if ((ctx.rcx + 0x180) && (ctx.rcx + 0x184))
+                    {
+                        // Persona model previews = 1024x1024
+                        if ((*reinterpret_cast<int*>(ctx.rcx + 0x180) == 1024) && (*reinterpret_cast<int*>(ctx.rcx + 0x184) == 1024))
+                        {
+                            *reinterpret_cast<int*>(ctx.rcx + 0x180) *= fRenTexResMulti;
+                            *reinterpret_cast<int*>(ctx.rcx + 0x184) *= fRenTexResMulti;
+                        }
+                    }
+                });
+
+        }
+        else if (!RenTex2DScanResult)
+        {
+            spdlog::error("Render Texture 2D Resolution: Pattern scan failed.");
+        }
+    }
+}
+
+void FramerateCap()
+{
     if (bUncapMenuFPS)
     {
         // Menu 60 FPS Cap
@@ -682,7 +739,7 @@ void GraphicalTweaks()
         uint8_t* FPSCapScanResult = Memory::PatternScan(baseModule, "3B ?? ?? ?? ?? ?? 0F ?? ?? F3 0F ?? ?? ?? EB ?? 0F ?? ?? 48 ?? ?? ?? ?? 0F ?? ?? ?? ??");
         if (FPSCapScanResult)
         {
-            spdlog::info("Screen Percentage: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)FPSCapScanResult - (uintptr_t)baseModule);
+            spdlog::info("FPS Cap: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)FPSCapScanResult - (uintptr_t)baseModule);
             static SafetyHookMid FPSCapMidHook{};
             FPSCapMidHook = safetyhook::create_mid(FPSCapScanResult + 0x13,
                 [](SafetyHookContext& ctx)
@@ -693,7 +750,7 @@ void GraphicalTweaks()
         }
         else if (!FPSCapScanResult)
         {
-            spdlog::error("Screen Percentage: Pattern scan failed.");
+            spdlog::error("FPS Cap: Pattern scan failed.");
         }
     }
 }
@@ -709,6 +766,7 @@ DWORD __stdcall Main(void*)
     HUDFix();
     Fades();
     GraphicalTweaks();
+    FramerateCap();
     return true;
 }
 
