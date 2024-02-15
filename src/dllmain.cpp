@@ -28,11 +28,11 @@ bool bHUDFix;
 bool bAspectFix;
 bool bFOVFix;
 bool bSkipLogos;
-bool bSkipNetwork;
-bool bSkipToLoadSave;
+int iSkipLogos;
 bool bUncapMenuFPS;
 bool bAdjustFPSCap;
 float fFramerateCap;
+bool bPauseOnFocusLoss;
 bool bScreenPercentage;
 float fScreenPercentage;
 bool bRenTexResMulti;
@@ -138,14 +138,14 @@ void ReadConfig()
     inipp::get_value(ini.sections["Custom Resolution"], "Enabled", bCustomResolution);
     inipp::get_value(ini.sections["Custom Resolution"], "Width", iCustomResX);
     inipp::get_value(ini.sections["Custom Resolution"], "Height", iCustomResY);
-    inipp::get_value(ini.sections["Fix HUD"], "Enabled", bHUDFix);
-    inipp::get_value(ini.sections["Fix Aspect Ratio"], "Enabled", bAspectFix);
     inipp::get_value(ini.sections["Intro Skip"], "SkipLogos", bSkipLogos);
-    inipp::get_value(ini.sections["Intro Skip"], "SkipNetwork", bSkipNetwork);
-    inipp::get_value(ini.sections["Intro Skip"], "SkipToLoadSave", bSkipToLoadSave);
+    inipp::get_value(ini.sections["Intro Skip"], "SkipTo", iSkipLogos);
+    inipp::get_value(ini.sections["Pause on Focus Loss"], "Enabled", bPauseOnFocusLoss);
     inipp::get_value(ini.sections["FPS Cap"], "UncapMenuFPS", bUncapMenuFPS);
     inipp::get_value(ini.sections["FPS Cap"], "AdjustFPSCap", bAdjustFPSCap);
     inipp::get_value(ini.sections["FPS Cap"], "Framerate", fFramerateCap);
+    inipp::get_value(ini.sections["Fix HUD"], "Enabled", bHUDFix);
+    inipp::get_value(ini.sections["Fix Aspect Ratio"], "Enabled", bAspectFix);
     inipp::get_value(ini.sections["Fix FOV"], "Enabled", bFOVFix);
     inipp::get_value(ini.sections["Screen Percentage"], "Enabled", bScreenPercentage);
     inipp::get_value(ini.sections["Screen Percentage"], "Value", fScreenPercentage);
@@ -158,11 +158,16 @@ void ReadConfig()
     spdlog::info("Config Parse: iCustomResX: {}", iCustomResX);
     spdlog::info("Config Parse: iCustomResY: {}", iCustomResY);
     spdlog::info("Config Parse: bSkipLogos: {}", bSkipLogos);
-    spdlog::info("Config Parse: bSkipNetwork: {}", bSkipNetwork);
-    spdlog::info("Config Parse: bSkipToLoadSave: {}", bSkipToLoadSave);
+    spdlog::info("Config Parse: iSkipLogos: {}", iSkipLogos);
+    if (iSkipLogos < 1 || iSkipLogos > 3)
+    {
+        iSkipLogos = std::clamp(iSkipLogos, 1, 3);
+        spdlog::info("Config Parse: iSkipLogos value invalid, clamped to {}", iSkipLogos);
+    }
     spdlog::info("Config Parse: bUncapMenuFPS: {}", bUncapMenuFPS);
     spdlog::info("Config Parse: bAdjustFPSCap: {}", bAdjustFPSCap);
     spdlog::info("Config Parse: fFramerateCap: {}", fFramerateCap);
+    spdlog::info("Config Parse: bPauseOnFocusLoss: {}", bPauseOnFocusLoss);
     spdlog::info("Config Parse: bHUDFix: {}", bHUDFix);
     spdlog::info("Config Parse: bAspectFix: {}", bAspectFix);
     spdlog::info("Config Parse: bFOVFix: {}", bFOVFix);
@@ -175,7 +180,7 @@ void ReadConfig()
     }
     spdlog::info("Config Parse: bRenTexResMulti: {}", bRenTexResMulti);
     spdlog::info("Config Parse: fRenTexResMulti: {}", fRenTexResMulti);
-    if (fRenTexResMulti < (float)0 || fRenTexResMulti >(float)10)
+    if (fRenTexResMulti < (float)0 || fRenTexResMulti > (float)10)
     {
         fRenTexResMulti = std::clamp(fRenTexResMulti, (float)0, (float)10);
         spdlog::info("Config Parse: fRenTexResMulti value invalid, clamped to {}", fRenTexResMulti);
@@ -223,53 +228,77 @@ void ReadConfig()
 
 void IntroSkip()
 {
-    // Skip caution
-    uint8_t* CautionSkipScanResult = Memory::PatternScan(baseModule, "FF ?? ?? 32 C0 48 ?? ?? ?? ?? 48 ?? ?? ?? ?? 0F ?? ?? ?? ?? 48 ?? ?? ?? 5F C3");
-    if (CautionSkipScanResult)
+    if (bSkipLogos)
     {
-        spdlog::info("Caution Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)CautionSkipScanResult - (uintptr_t)baseModule);
-
-        if (bSkipNetwork)
+        // Skip caution
+        uint8_t* CautionSkipScanResult = Memory::PatternScan(baseModule, "FF ?? ?? 32 C0 48 ?? ?? ?? ?? 48 ?? ?? ?? ?? 0F ?? ?? ?? ?? 48 ?? ?? ?? 5F C3");
+        if (CautionSkipScanResult)
         {
-            // Skip over network
-            Memory::PatchBytes((uintptr_t)CautionSkipScanResult + 0x3, "\xB0\x03", 2);
-            spdlog::info("Caution Skip: Skipped over network dialog.");
-        }
-        else 
-        {
-            // Skip to network
+            spdlog::info("Caution Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)CautionSkipScanResult - (uintptr_t)baseModule);
             Memory::PatchBytes((uintptr_t)CautionSkipScanResult + 0x3, "\xB0\x02", 2);
-            spdlog::info("Caution Skip: Skipped caution to network dialog.");
-        }   
-    }
-    else if (!CautionSkipScanResult)
-    {
-        spdlog::error("Caution Skip: Pattern scan failed.");
-    }
-
-    // Skip to menu after network option
-    uint8_t* IntroSkipScanResult = Memory::PatternScan(baseModule, "B0 03 0F ?? ?? ?? ?? ?? 00 00 44 ?? ?? ?? ?? ?? ?? 00 00");
-    if (IntroSkipScanResult)
-    {
-        spdlog::info("Intro Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)IntroSkipScanResult - (uintptr_t)baseModule);
-
-        if (bSkipLogos)
-        {
-            // Press any key screen
-            Memory::PatchBytes((uintptr_t)IntroSkipScanResult, "\xB0\x05", 2);
-            spdlog::info("Intro Skip: Skipped to 'press any key' screen.");
+            spdlog::info("Caution Skip: Skipped to network dialog.");
         }
-        
-        if (bSkipToLoadSave)
+        else if (!CautionSkipScanResult)
         {
-            // Load menu 
-            Memory::PatchBytes((uintptr_t)IntroSkipScanResult, "\xB0\x08", 2);
-            spdlog::info("Intro Skip: Skipped to load save menu.");
-        } 
-    }
-    else if (!IntroSkipScanResult)
-    {
-        spdlog::error("Intro Skip: Pattern scan failed.");
+            spdlog::error("Caution Skip: Pattern scan failed.");
+        }
+
+        // Skip network
+        uint8_t* NetworkSkipScanResult = Memory::PatternScan(baseModule, "41 ?? 48 ?? ?? ?? 48 ?? ?? 8B ?? ?? 85 ??  0F ?? ?? ?? ?? ?? 33 ?? 83 ?? 01");
+        if (NetworkSkipScanResult)
+        {
+            spdlog::info("Network Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)NetworkSkipScanResult - (uintptr_t)baseModule);
+            //Memory::Write((uintptr_t)NetworkSkipScanResult + 0x6, (BYTE)3);
+
+            // TODO: Currently this only defaults the network features to enabled. It does not skip the "OK" dialog.
+            static SafetyHookMid NetworkSkipMidHook{};
+            NetworkSkipMidHook = safetyhook::create_mid(NetworkSkipScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    *reinterpret_cast<int*>(ctx.rcx + 0x40) = 1;
+                    *reinterpret_cast<int*>(ctx.rcx + 0x38) = 1;
+                });
+
+            spdlog::info("Network Skip: Skipped over network dialog.");
+        }
+        else if (!NetworkSkipScanResult)
+        {
+            spdlog::error("Network Skip: Pattern scan failed.");
+        }
+
+        // Skip intro after network option
+        uint8_t* IntroSkipScanResult = Memory::PatternScan(baseModule, "B0 03 0F ?? ?? ?? ?? ?? 00 00 44 ?? ?? ?? ?? ?? ?? 00 00");
+        if (IntroSkipScanResult)
+        {
+            spdlog::info("Intro Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)IntroSkipScanResult - (uintptr_t)baseModule);
+
+            switch (iSkipLogos)
+            {
+            // Opening Movie
+            case 1:
+                iSkipLogos = 3;
+                break;
+
+            // Main Menu
+            case 2:
+                iSkipLogos = 5;
+                break;
+
+            // Load Save Menu
+            case 3:
+                iSkipLogos = 8;
+                break;
+            }
+
+            // Patch instruction to skip to desired intro state
+            Memory::PatchBytes((uintptr_t)IntroSkipScanResult, "\xB0\x03", 2);
+            Memory::Write((uintptr_t)IntroSkipScanResult + 0x1, (BYTE)iSkipLogos);
+            spdlog::info("Intro Skip: Skipped intro to title state {}.", iSkipLogos);
+        }
+        else if (!IntroSkipScanResult)
+        {
+            spdlog::error("Intro Skip: Pattern scan failed.");
+        }
     }
 }
 
@@ -712,6 +741,23 @@ void GraphicalTweaks()
             spdlog::error("Render Texture 2D Resolution: Pattern scan failed.");
         }
     }
+
+    if (!bPauseOnFocusLoss)
+    {
+        // Pause on focus loss
+        uint8_t* WindowFocusScanResult = Memory::PatternScan(baseModule, "83 ?? ?? ?? 00 48 ?? ?? ?? 48 ?? ?? 0F ?? ?? FF ?? 38 ?? 00 00");
+        if (WindowFocusScanResult)
+        {
+            spdlog::info("Window Focus: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)WindowFocusScanResult - (uintptr_t)baseModule);
+            Memory::PatchBytes((uintptr_t)WindowFocusScanResult + 0x4, "\x7F", 1);
+            spdlog::info("Window Focus: Patched instruction.");
+
+        }
+        else if (!WindowFocusScanResult)
+        {
+            spdlog::error("Window Focus: Pattern scan failed.");
+        }
+    }
 }
 
 void FramerateCap()
@@ -719,15 +765,15 @@ void FramerateCap()
     if (bUncapMenuFPS)
     {
         // Menu 60 FPS Cap
-        uint8_t* MenuFPSCapScanResult = Memory::PatternScan(baseModule, "3B ?? 74 ?? E8 ?? ?? ?? ?? 48 ?? ?? 41 ?? 01 8B ?? E8 ?? ?? ?? ??");
-        if (MenuFPSCapScanResult)
+        uint8_t* WindowFocusScanResult = Memory::PatternScan(baseModule, "3B ?? 74 ?? E8 ?? ?? ?? ?? 48 ?? ?? 41 ?? 01 8B ?? E8 ?? ?? ?? ??");
+        if (WindowFocusScanResult)
         {
-            spdlog::info("Menu FPS Cap: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)MenuFPSCapScanResult - (uintptr_t)baseModule);
-            Memory::PatchBytes((uintptr_t)MenuFPSCapScanResult + 0x2, "\xEB", 1);
+            spdlog::info("Menu FPS Cap: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)WindowFocusScanResult - (uintptr_t)baseModule);
+            Memory::PatchBytes((uintptr_t)WindowFocusScanResult + 0x2, "\xEB", 1);
             spdlog::info("Menu FPS Cap: Patched instruction.");
 
         }
-        else if (!MenuFPSCapScanResult)
+        else if (!WindowFocusScanResult)
         {
             spdlog::error("Menu FPS Cap: Pattern scan failed.");
         }
