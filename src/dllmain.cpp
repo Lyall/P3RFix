@@ -335,38 +335,6 @@ void Resolution()
             spdlog::error("Custom Resolution: Pattern scan failed.");
         }
     }
-   
-    // Grab current resolution. Needed in case the game is running borderless for example.
-    uint8_t* CurrResolutionScanResult = Memory::PatternScan(baseModule, "33 ?? B9 ?? ?? ?? ?? 45 ?? ?? 48 ?? ?? 4A ?? ?? ?? 48 ?? ?? 8B ??");
-    if (CurrResolutionScanResult)
-    {
-        spdlog::info("Current Resolution: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)CurrResolutionScanResult - (uintptr_t)baseModule);
-        static SafetyHookMid CurrResolutionMidHook{};
-        CurrResolutionMidHook = safetyhook::create_mid(CurrResolutionScanResult + 0x7,
-            [](SafetyHookContext& ctx)
-            {
-                iCustomResX = *(int*)(&ctx.r15);
-                iCustomResY = *(int*)(&ctx.r9);
-                fAspectRatio = (float)iCustomResX / iCustomResY;
-
-                // Calculate HUD variables again in case the resolution changed.
-                fHUDWidth = iCustomResY * fNativeAspect;
-                fHUDHeight = (float)iCustomResY;
-                fHUDWidthOffset = (float)(iCustomResX - fHUDWidth) / 2;
-                fHUDHeightOffset = 0;
-                if (fAspectRatio < fNativeAspect)
-                {
-                    fHUDWidth = (float)iCustomResX;
-                    fHUDHeight = (float)iCustomResX / fNativeAspect;
-                    fHUDWidthOffset = 0;
-                    fHUDHeightOffset = (float)(iCustomResY - fHUDHeight) / 2;
-                }
-            });
-    }
-    else if (!CurrResolutionScanResult)
-    {
-        spdlog::error("Current Resolution: Pattern scan failed.");
-    }
 }
 
 void AspectFOVFix()
@@ -751,21 +719,21 @@ void GraphicalTweaks()
 
 							if (iRenTexSizeX == 1920 && iRenTexSizeY == 1080) {
 								// Seems to affect pause menu screens, has some minor bugs in transitions
-float fRenderScale = fScreenPercentage / 100.0f;
-iRenTexSizeX = iCustomResX * fRenderScale;
-iRenTexSizeY = iCustomResY * fRenderScale;
+                                float fRenderScale = fScreenPercentage / 100.0f;
+                                iRenTexSizeX = iCustomResX * fRenderScale;
+                                iRenTexSizeY = iCustomResY * fRenderScale;
 
-if (fAspectRatio > fNativeAspect)
-{
-    iRenTexSizeX = fHUDWidth * fRenderScale;
-    iRenTexSizeY = iCustomResY * fRenderScale;
-}
+                                if (fAspectRatio > fNativeAspect)
+                                {
+                                    iRenTexSizeX = fHUDWidth * fRenderScale;
+                                    iRenTexSizeY = iCustomResY * fRenderScale;
+                                }
 
-if (fAspectRatio < fNativeAspect)
-{
-    iRenTexSizeX = iCustomResX * fRenderScale;
-    iRenTexSizeY = fHUDHeight * fRenderScale;
-}
+                                if (fAspectRatio < fNativeAspect)
+                                {
+                                    iRenTexSizeX = iCustomResX * fRenderScale;
+                                    iRenTexSizeY = fHUDHeight * fRenderScale;
+                                }
 								spdlog::info("Render Texture 2D screen percent: {:f}, {:d}x{:d}", fRenderScale, iCustomResX, iCustomResY);
 							}
 							else if (iRenTexSizeX > iRenTexSizeY) {
