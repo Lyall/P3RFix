@@ -21,7 +21,9 @@ This is a fix that adds custom resolutions, ultrawide support and more to Person
 
 <details>
 <summary>If you want to use Reloaded II mods alongside P3RFix</summary>
+  
 This applies to both Windows and Steam Deck/Linux
+
 To make sure P3RFix loads alongside any Reloaded II mods you are using, follow these steps:
 
 - Set up Reloaded II and enable any mods you want as per the instructions on [GameBanana](https://gamebanana.com/tuts/17156)
