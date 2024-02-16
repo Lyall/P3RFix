@@ -48,6 +48,9 @@ float fDefaultHUDHeight = (float)1080;
 float fHUDWidthOffset;
 float fHUDHeightOffset;
 
+// Variables
+int iFadeStatus = 0; // Initialise as not fading.
+
 void Logging()
 {
     // spdlog initialisation
@@ -434,205 +437,92 @@ void Fades()
 {
     if (bHUDFix)
     {
-        // FadePgColorOut
-        uint8_t* FadePgColorOutScanResult = Memory::PatternScan(baseModule, "89 ?? ?? ?? 33 ?? F3 0F ?? ?? ?? ?? E8 ?? ?? ?? ?? 0F ?? ?? ?? 66 ?? ?? ?? ??");
-        if (FadePgColorOutScanResult)
+        // Get fade status
+        uint8_t* FadeStatusScanResult = Memory::PatternScan(baseModule, "40 ?? 48 ?? ?? ?? 4C ?? ?? ?? ?? ?? 00 0F ?? ?? 0F ?? ?? ?? ?? 0F ?? ?? 48 ?? ??");
+        if (FadeStatusScanResult)
         {
-            spdlog::info("Fade Pg Color Out: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)FadePgColorOutScanResult - (uintptr_t)baseModule);
-
-            static SafetyHookMid FadePgColorOut1MidHook{};
-            FadePgColorOut1MidHook = safetyhook::create_mid(FadePgColorOutScanResult,
+            spdlog::info("Fade Status: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)FadeStatusScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid FadeStatusMidHook{};
+            FadeStatusMidHook = safetyhook::create_mid(FadeStatusScanResult,
                 [](SafetyHookContext& ctx)
                 {
-                    if (fAspectRatio > fNativeAspect)
-                    {
-                        ctx.xmm2.f32[0] = -(fHUDWidthOffset * 2);
-                    }
-                    else if (fAspectRatio < fNativeAspect)
-                    {
-                        ctx.xmm3.f32[0] = -(fHUDHeightOffset * 2);
-                    }
-                });
-
-            static SafetyHookMid FadePgColorOut2MidHook{};
-            FadePgColorOut2MidHook = safetyhook::create_mid(FadePgColorOutScanResult + 0x42,
-                [](SafetyHookContext& ctx)
-                {
-                    if (fAspectRatio > fNativeAspect)
-                    {
-                        ctx.xmm2.f32[0] = 1080 * fAspectRatio;
-                    }
-                    else if (fAspectRatio < fNativeAspect)
-                    {
-                        ctx.xmm3.f32[0] = -(fHUDHeightOffset * 2);
-                    }
-                });
-
-            static SafetyHookMid FadePgColorOut3MidHook{};
-            FadePgColorOut3MidHook = safetyhook::create_mid(FadePgColorOutScanResult + 0x9E,
-                [](SafetyHookContext& ctx)
-                {
-                    if (fAspectRatio > fNativeAspect)
-                    {
-                        ctx.xmm2.f32[0] = -(fHUDWidthOffset * 2);
-                    }
-                    else if (fAspectRatio < fNativeAspect)
-                    {
-                        ctx.xmm3.f32[0] = 1920 / fAspectRatio;
-                    }
-                });
-
-            static SafetyHookMid FadePgColorOut4MidHook{};
-            FadePgColorOut4MidHook = safetyhook::create_mid(FadePgColorOutScanResult + 0xD9,
-                [](SafetyHookContext& ctx)
-                {
-                    if (fAspectRatio > fNativeAspect)
-                    {
-                        ctx.xmm2.f32[0] = 1080 * fAspectRatio;
-                    }
-                    else if (fAspectRatio < fNativeAspect)
-                    {
-                        ctx.xmm3.f32[0] = 1920 / fAspectRatio;
-                    }
+                    iFadeStatus = *reinterpret_cast<int*>(ctx.rcx + 0x30);
                 });
         }
-        else if (!FadePgColorOutScanResult)
+        else if (!FadeStatusScanResult)
         {
-            spdlog::error("Fade Pg Color Out: Pattern scan failed.");
-        }
-        
-        // FadePgSlide
-        uint8_t* FadePgSlideScanResult = Memory::PatternScan(baseModule, "0F ?? ?? BA 02 00 00 00 F3 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 0F ?? ?? ?? 66 0F ?? ?? ?? ?? ?? 00 66 0F ?? ?? ?? 66 ?? ?? ?? ?? 48 ?? ?? 74 ?? F0 ?? ?? ??");
-        if (FadePgSlideScanResult)
-        {
-            spdlog::info("Fade Pg Slide: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)FadePgSlideScanResult - (uintptr_t)baseModule);
-
-            static SafetyHookMid FadePgSlide1MidHook{};
-            FadePgSlide1MidHook = safetyhook::create_mid(FadePgSlideScanResult + 0x3,
-                [](SafetyHookContext& ctx)
-                {
-                    if (fAspectRatio > fNativeAspect)
-                    {
-                        ctx.xmm2.f32[0] = -(fHUDWidthOffset * 2);
-                    }
-                    else if (fAspectRatio < fNativeAspect)
-                    {
-                        ctx.xmm3.f32[0] = -(fHUDHeightOffset * 2);
-                    }
-                });
-
-            static SafetyHookMid FadePgSlide2MidHook{};
-            FadePgSlide2MidHook = safetyhook::create_mid(FadePgSlideScanResult + 0x50,
-                [](SafetyHookContext& ctx)
-                {
-                    if (fAspectRatio > fNativeAspect)
-                    {
-                        ctx.xmm2.f32[0] = 1080 * fAspectRatio;
-                    }
-                    else if (fAspectRatio < fNativeAspect)
-                    {
-                        ctx.xmm3.f32[0] = -(fHUDHeightOffset * 2);
-                    }
-                });
-
-            static SafetyHookMid FadePgSlide3MidHook{};
-            FadePgSlide3MidHook = safetyhook::create_mid(FadePgSlideScanResult + 0xA2,
-                [](SafetyHookContext& ctx)
-                {
-                    if (fAspectRatio > fNativeAspect)
-                    {
-                        ctx.xmm2.f32[0] = -(fHUDWidthOffset * 2);
-                    }
-                    else if (fAspectRatio < fNativeAspect)
-                    {
-                        ctx.xmm3.f32[0] = 1920 / fAspectRatio;
-                    }
-                });
-
-            static SafetyHookMid FadePgSlide4MidHook{};
-            FadePgSlide4MidHook = safetyhook::create_mid(FadePgSlideScanResult + 0xEB,
-                [](SafetyHookContext& ctx)
-                {
-                    if (fAspectRatio > fNativeAspect)
-                    {
-                        ctx.xmm2.f32[0] = 1080 * fAspectRatio;
-                    }
-                    else if (fAspectRatio < fNativeAspect)
-                    {
-                        ctx.xmm3.f32[0] = 1920 / fAspectRatio;
-                    }
-                });
-        }
-        else if (!FadePgSlideScanResult)
-        {
-            spdlog::error("Fade Pg Slide: Pattern scan failed.");
+            spdlog::error("Fade Status: Pattern scan failed.");
         }
 
-        // FadePgSlideVertical
-        uint8_t* FadePgSlideVerticalScanResult = Memory::PatternScan(baseModule, "0F 28 ?? BA 06 00 00 00 F3 0F ?? ?? ?? ?? E8 ?? ?? ?? ?? 0F ?? ?? ?? 66 ?? ?? ?? ?? ?? ?? 00 66 ?? ?? ?? 08 66 ?? ?? ?? ?? 48 ?? ?? 74 ?? F0 ?? ?? ?? F3 0F ?? ?? ?? ?? 48 ?? ?? ?? ?? ?? 00 F3 0F ?? ?? ?? ?? 0F 28 ??");
-        if (FadePgSlideVerticalScanResult)
+        // Fades
+        uint8_t* FadesScanResult = Memory::PatternScan(baseModule, "BA 06 00 00 00 F3 0F ?? ?? ?? ?? E8 ?? ?? ?? ?? F3 0F ?? ?? ?? ??"); // 2 results but they both contain the address we need.
+        if (FadesScanResult)
         {
-            spdlog::info("Fade Pg Slide Verical: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)FadePgSlideVerticalScanResult - (uintptr_t)baseModule);
+            spdlog::info("Fades: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)FadesScanResult - (uintptr_t)baseModule);
+            DWORD64 FadesAddress = Memory::GetAbsolute((uintptr_t)FadesScanResult + 0xC);
+            spdlog::info("Fades: Function address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)FadesAddress - (uintptr_t)baseModule);
 
-            static SafetyHookMid FadePgSlideVertical1MidHook{};
-            FadePgSlideVertical1MidHook = safetyhook::create_mid(FadePgSlideVerticalScanResult + 0x3,
+            static SafetyHookMid GlobalFadesMidHook{};
+            GlobalFadesMidHook = safetyhook::create_mid(FadesAddress,
                 [](SafetyHookContext& ctx)
                 {
-                    if (fAspectRatio > fNativeAspect)
+                    // Only modify values when we are in a fade transition
+                    if (iFadeStatus != 0)
                     {
-                        ctx.xmm2.f32[0] = -(fHUDWidthOffset * 2);
-                    }
-                    else if (fAspectRatio < fNativeAspect)
-                    {
-                        ctx.xmm3.f32[0] = -(fHUDHeightOffset * 2);
+                        if (ctx.xmm2.f32[0] == 0.0f && ctx.xmm3.f32[0] == 0.0f)
+                        {
+                            if (fAspectRatio > fNativeAspect)
+                            {
+                                ctx.xmm2.f32[0] = -(fHUDWidthOffset * 2);
+                            }
+                            else if (fAspectRatio < fNativeAspect)
+                            {
+                                ctx.xmm3.f32[0] = -(fHUDHeightOffset * 2);
+                            }
+                        }
+
+                        if (ctx.xmm2.f32[0] == (float)1920 && ctx.xmm3.f32[0] == 0.0f)
+                        {
+                            if (fAspectRatio > fNativeAspect)
+                            {
+                                ctx.xmm2.f32[0] *= fAspectRatio;
+                            }
+                            else if (fAspectRatio < fNativeAspect)
+                            {
+                                ctx.xmm3.f32[0] = -(fHUDHeightOffset * 2);
+                            }
+                        }
+
+                        if (ctx.xmm2.f32[0] == 0.0f && ctx.xmm3.f32[0] == (float)1080)
+                        {
+                            if (fAspectRatio > fNativeAspect)
+                            {
+                                ctx.xmm2.f32[0] = -(fHUDWidthOffset * 2);
+                            }
+                            else if (fAspectRatio < fNativeAspect)
+                            {
+                                ctx.xmm3.f32[0] /= fAspectRatio;
+                            }
+                        }
+
+                        if (ctx.xmm2.f32[0] == (float)1920 && ctx.xmm3.f32[0] == (float)1080)
+                        {
+                            if (fAspectRatio > fNativeAspect)
+                            {
+                                ctx.xmm2.f32[0] *= fAspectRatio;
+                            }
+                            else if (fAspectRatio < fNativeAspect)
+                            {
+                                ctx.xmm3.f32[0] /= fAspectRatio;
+                            }
+                        }
                     }
                 });
 
-            static SafetyHookMid FadePgSlideVertical2MidHook{};
-            FadePgSlideVertical2MidHook = safetyhook::create_mid(FadePgSlideVerticalScanResult + 0x50,
-                [](SafetyHookContext& ctx)
-                {
-                    if (fAspectRatio > fNativeAspect)
-                    {
-                        ctx.xmm2.f32[0] = 1080 * fAspectRatio;
-                    }
-                    else if (fAspectRatio < fNativeAspect)
-                    {
-                        ctx.xmm3.f32[0] = -(fHUDHeightOffset * 2);
-                    }
-                });
-
-            static SafetyHookMid FadePgSlideVertical3MidHook{};
-            FadePgSlideVertical3MidHook = safetyhook::create_mid(FadePgSlideVerticalScanResult + 0x9D,
-                [](SafetyHookContext& ctx)
-                {
-                    if (fAspectRatio > fNativeAspect)
-                    {
-                        ctx.xmm2.f32[0] = -(fHUDWidthOffset * 2);
-                    }
-                    else if (fAspectRatio < fNativeAspect)
-                    {
-                        ctx.xmm3.f32[0] = 1920 / fAspectRatio;
-                    }
-                });
-
-            static SafetyHookMid FadePgSlideVertical4MidHook{};
-            FadePgSlideVertical4MidHook = safetyhook::create_mid(FadePgSlideVerticalScanResult + 0xEB,
-                [](SafetyHookContext& ctx)
-                {
-                    if (fAspectRatio > fNativeAspect)
-                    {
-                        ctx.xmm2.f32[0] = 1080 * fAspectRatio;
-                    }
-                    else if (fAspectRatio < fNativeAspect)
-                    {
-                        ctx.xmm3.f32[0] = 1920 / fAspectRatio;
-                    }
-                });
         }
-        else if (!FadePgSlideVerticalScanResult)
+        else if (!FadesScanResult)
         {
-            spdlog::error("Fade Pg Slide Vertical: Pattern scan failed.");
+            spdlog::error("Fades: Pattern scan failed.");
         }
     }
 }
