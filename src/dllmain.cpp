@@ -15,7 +15,7 @@ string sLogFile = "P3RFix.log";
 string sConfigFile = "P3RFix.ini";
 string sExeName;
 filesystem::path sExePath;
-RECT rcDesktop;
+std::pair DesktopDimensions = { 0,0 };
 
 // Ini Variables
 int iInjectionDelay;
@@ -181,16 +181,17 @@ void ReadConfig()
     spdlog::info("----------");
 
     // Calculate aspect ratio / use desktop res instead
-    GetWindowRect(GetDesktopWindow(), &rcDesktop);
+    DesktopDimensions = Util::GetPhysicalDesktopDimensions();
+
     if (iCustomResX > 0 && iCustomResY > 0)
     {
         fAspectRatio = (float)iCustomResX / (float)iCustomResY;
     }
     else
     {
-        iCustomResX = (int)rcDesktop.right;
-        iCustomResY = (int)rcDesktop.bottom;
-        fAspectRatio = (float)rcDesktop.right / (float)rcDesktop.bottom;
+        iCustomResX = (int)DesktopDimensions.first;
+        iCustomResY = (int)DesktopDimensions.second;
+        fAspectRatio = (float)DesktopDimensions.first / (float)DesktopDimensions.second;
     }
     fAspectMultiplier = fAspectRatio / fNativeAspect;
 
@@ -309,7 +310,6 @@ void Resolution()
                 int Width = iCustomResX;
                 int Height = iCustomResY;
             } CustomResolution;
-
 
             spdlog::info("Custom Resolution: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ApplyResolutionScanResult - (uintptr_t)baseModule);
             static SafetyHookMid ApplyResolutionMidHook{};

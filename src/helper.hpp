@@ -91,3 +91,13 @@ namespace Memory
         return (address + 4 + *reinterpret_cast<std::int32_t*>(address));
     }
 }
+
+namespace Util
+{
+    std::pair<int, int> GetPhysicalDesktopDimensions() {
+        if (DEVMODE devMode{ .dmSize = sizeof(DEVMODE) }; EnumDisplaySettings(nullptr, ENUM_CURRENT_SETTINGS, &devMode))
+            return { devMode.dmPelsWidth, devMode.dmPelsHeight };
+
+        return {};
+    }
+}
