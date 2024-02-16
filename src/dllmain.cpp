@@ -707,9 +707,9 @@ void GraphicalTweaks()
                             iRenTexSizeY = min(iRenTexSizeY, (int)fHUDHeight);
                         } 
 
-                        // Limit to 4096x4096 maximum
-                        iRenTexSizeX = min(iRenTexSizeX, (int)4096);
-                        iRenTexSizeY = min(iRenTexSizeY, (int)4096);
+                        // Limit to 16384x16384 maximum
+                        iRenTexSizeX = min(iRenTexSizeX, (int)16384);
+                        iRenTexSizeY = min(iRenTexSizeY, (int)16384);
                           
                         *pRenTexSizeX = iRenTexSizeX;
                         *pRenTexSizeY = iRenTexSizeY;
