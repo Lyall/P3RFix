@@ -697,9 +697,10 @@ void GraphicalTweaks()
             RenTex2DMidHook = safetyhook::create_mid(RenTex2DScanResult,
                 [](SafetyHookContext& ctx)
                 {
-                    if ((ctx.rcx + 0x180) && (ctx.rcx + 0x184))
+                    // Skip TextureRenderTargetFormat = RTF_RGBA16f from RT_Capture.uasset
+                    if ((ctx.rcx + 0x180) && (ctx.rcx + 0x184) && (*reinterpret_cast<BYTE*>(ctx.rcx + 0x19B) != 6))
                     {
-						int* pRenTexSizeX = reinterpret_cast<int*>(ctx.rcx + 0x180);
+                        int* pRenTexSizeX = reinterpret_cast<int*>(ctx.rcx + 0x180);
 						int* pRenTexSizeY = reinterpret_cast<int*>(ctx.rcx + 0x184);
 						int iRenTexSizeX = *pRenTexSizeX;
 						int iRenTexSizeY = *pRenTexSizeY;
