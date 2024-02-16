@@ -192,6 +192,8 @@ void ReadConfig()
         iCustomResX = (int)DesktopDimensions.first;
         iCustomResY = (int)DesktopDimensions.second;
         fAspectRatio = (float)DesktopDimensions.first / (float)DesktopDimensions.second;
+        spdlog::info("Custom Resolution: iCustomResX: Desktop Width: {}", iCustomResX);
+        spdlog::info("Custom Resolution: iCustomResY: Desktop Height: {}", iCustomResY);
     }
     fAspectMultiplier = fAspectRatio / fNativeAspect;
 
@@ -209,8 +211,6 @@ void ReadConfig()
     }
 
     // Log aspect ratio stuff
-    spdlog::info("Custom Resolution: iCustomResX: {}", iCustomResX);
-    spdlog::info("Custom Resolution: iCustomResY: {}", iCustomResY);
     spdlog::info("Custom Resolution: fAspectRatio: {}", fAspectRatio);
     spdlog::info("Custom Resolution: fAspectMultiplier: {}", fAspectMultiplier);
     spdlog::info("Custom Resolution: fHUDWidth: {}", fHUDWidth);
