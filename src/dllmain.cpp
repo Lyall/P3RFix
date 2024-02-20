@@ -34,7 +34,7 @@ bool bPauseOnFocusLoss;
 bool bScreenPercentage;
 float fScreenPercentage = 100.0f;
 bool bRenTexResMulti;
-float fRenTexResMulti;
+float fRenTexResUserMulti;
 
 // Aspect ratio + HUD stuff
 float fPi = (float)3.141592653;
@@ -50,6 +50,66 @@ float fHUDHeightOffset;
 
 // Variables
 int iFadeStatus = 0; // Initialise as not fading.
+int iRenTexNo = 0;
+
+SafetyHookInline RenTexPostLoad{};
+void* RenTexPostLoad_Hooked(uint8_t* thisptr)
+{
+    // Calculate optimal resolution multiplier assuming target is 1080p
+    // Screen percentage is only retrieved when the hook is run, meaning that on first boot we have to assume it is 100%
+    float fOptimalRenTexResMulti = (iCustomResY * (fScreenPercentage / 100)) / 1080;
+    float fRenTexResMulti;
+
+    if (fRenTexResUserMulti == 1.0f)
+    {
+        // If set to 1, use the calculated optimal multiplier.
+        fRenTexResMulti = fOptimalRenTexResMulti;
+    }
+    else
+    {
+        // If not set to 1, then multiply on top using user defined value.
+        fRenTexResMulti = fOptimalRenTexResMulti * fRenTexResUserMulti;
+    }
+
+    // Min = 25%, Max = 400%
+    fRenTexResMulti = std::clamp(fRenTexResMulti, (float)0.25, (float)4);
+    spdlog::info("Render Texture 2D Resolution: fRenTexResMulti = {}", fRenTexResMulti);
+
+    if (fRenTexResMulti < 0.25f || fRenTexResMulti > 4.0f)
+    {
+        spdlog::warn("Render Texture 2D Resolution: fRenTexResMulti value invalid, clamped to = {}", fRenTexResMulti);
+    }
+
+    uint32_t* SizeX = (uint32_t*)(thisptr + 0x180);
+    uint32_t* SizeY = (uint32_t*)(thisptr + 0x184);
+    uint8_t* RTFormat = (uint8_t*)(thisptr + 0x19B);
+
+    if (*RTFormat != 6)
+    {
+        spdlog::info("Render Texture 2D Resolution: Old render texture resolution = {}x{}", *SizeX, *SizeY);
+
+        if (*SizeX == 1920 && *SizeY == 1080 && iRenTexNo < 4)
+        {
+            // 1080p HUD
+            *SizeX *= fRenTexResMulti;
+            *SizeY *= fRenTexResMulti;
+            *SizeX = min(*SizeX, (uint32_t)fHUDWidth);
+            *SizeY = min(*SizeY, (uint32_t)fHUDHeight);
+            spdlog::info("Render Texture 2D Resolution : Clamped render texture resolution {} = {}x{}", iRenTexNo, *SizeX, *SizeY);
+        }
+        else
+        {
+            *SizeX *= fRenTexResMulti;
+            *SizeY *= fRenTexResMulti;
+        }
+
+        spdlog::info("Render Texture 2D Resolution: New render texture resolution = {}x{}", *SizeX, *SizeY);
+    }
+
+    iRenTexNo++;
+    // Run original function
+    return RenTexPostLoad.stdcall<void*>(thisptr);
+}
 
 void Logging()
 {
@@ -142,16 +202,16 @@ void ReadConfig()
     inipp::get_value(ini.sections["Intro Skip"], "SkipLogos", bSkipLogos);
     inipp::get_value(ini.sections["Intro Skip"], "SkipTo", iSkipLogos);
     inipp::get_value(ini.sections["Pause on Focus Loss"], "Enabled", bPauseOnFocusLoss);
-    inipp::get_value(ini.sections["FPS Cap"], "UncapMenuFPS", bUncapMenuFPS);
-    inipp::get_value(ini.sections["FPS Cap"], "AdjustFPSCap", bAdjustFPSCap);
-    inipp::get_value(ini.sections["FPS Cap"], "Framerate", fFramerateCap);
+    inipp::get_value(ini.sections["Uncap 60FPS Menus"], "Enabled", bUncapMenuFPS);
     inipp::get_value(ini.sections["Fix HUD"], "Enabled", bHUDFix);
     inipp::get_value(ini.sections["Fix Aspect Ratio"], "Enabled", bAspectFix);
     inipp::get_value(ini.sections["Fix FOV"], "Enabled", bFOVFix);
     inipp::get_value(ini.sections["Screen Percentage"], "Enabled", bScreenPercentage);
     inipp::get_value(ini.sections["Screen Percentage"], "Value", fScreenPercentage);
     inipp::get_value(ini.sections["Render Texture Resolution"], "Enabled", bRenTexResMulti);
-    inipp::get_value(ini.sections["Render Texture Resolution"], "Multiplier", fRenTexResMulti);
+    inipp::get_value(ini.sections["Render Texture Resolution"], "Multiplier", fRenTexResUserMulti);
+    inipp::get_value(ini.sections["FPS Cap"], "AdjustFPSCap", bAdjustFPSCap);
+    inipp::get_value(ini.sections["FPS Cap"], "Framerate", fFramerateCap);
 
     // Log config parse
     spdlog::info("Config Parse: iInjectionDelay: {}ms", iInjectionDelay);
@@ -163,11 +223,9 @@ void ReadConfig()
     if (iSkipLogos < 1 || iSkipLogos > 3)
     {
         iSkipLogos = std::clamp(iSkipLogos, 1, 3);
-        spdlog::info("Config Parse: iSkipLogos value invalid, clamped to {}", iSkipLogos);
+        spdlog::warn("Config Parse: iSkipLogos value invalid, clamped to {}", iSkipLogos);
     }
     spdlog::info("Config Parse: bUncapMenuFPS: {}", bUncapMenuFPS);
-    spdlog::info("Config Parse: bAdjustFPSCap: {}", bAdjustFPSCap);
-    spdlog::info("Config Parse: fFramerateCap: {}", fFramerateCap);
     spdlog::info("Config Parse: bPauseOnFocusLoss: {}", bPauseOnFocusLoss);
     spdlog::info("Config Parse: bHUDFix: {}", bHUDFix);
     spdlog::info("Config Parse: bAspectFix: {}", bAspectFix);
@@ -177,10 +235,12 @@ void ReadConfig()
     if (fScreenPercentage < (float)10 || fScreenPercentage > (float)400)
     {
         fScreenPercentage = std::clamp(fScreenPercentage, (float)10, (float)400);
-        spdlog::info("Config Parse: fScreenPercentage value invalid, clamped to {}", fScreenPercentage);
+        spdlog::warn("Config Parse: fScreenPercentage value invalid, clamped to {}", fScreenPercentage);
     }
     spdlog::info("Config Parse: bRenTexResMulti: {}", bRenTexResMulti);
-    spdlog::info("Config Parse: fRenTexResMulti: {}", fRenTexResMulti); // Don't need to clamp this as we'll do it later.
+    spdlog::info("Config Parse: fRenTexResMulti: {}", fRenTexResUserMulti); // Don't need to clamp this as we'll do it later.
+    spdlog::info("Config Parse: bAdjustFPSCap: {}", bAdjustFPSCap);
+    spdlog::info("Config Parse: fFramerateCap: {}", fFramerateCap);
     spdlog::info("----------");
 
     // Calculate aspect ratio / use desktop res instead
@@ -195,8 +255,8 @@ void ReadConfig()
         iCustomResX = (int)DesktopDimensions.first;
         iCustomResY = (int)DesktopDimensions.second;
         fAspectRatio = (float)DesktopDimensions.first / (float)DesktopDimensions.second;
-        spdlog::info("Custom Resolution: iCustomResX: Desktop Width: {}", iCustomResX);
-        spdlog::info("Custom Resolution: iCustomResY: Desktop Height: {}", iCustomResY);
+        spdlog::info("Custom Resolution: Desktop Width: {}", iCustomResX);
+        spdlog::info("Custom Resolution: Desktop Height: {}", iCustomResY);
     }
     fAspectMultiplier = fAspectRatio / fNativeAspect;
 
@@ -549,7 +609,6 @@ void GraphicalTweaks()
                         fScreenPercentage = *reinterpret_cast<float*>(ctx.rdi + (ctx.rbx * 4));
                     }
                 });
-
         }
         else if (!ScreenPercentageScanResult)
         {
@@ -562,58 +621,14 @@ void GraphicalTweaks()
         uint8_t* RenTex2DScanResult = Memory::PatternScan(baseModule, "8B ?? ?? ?? 00 00 44 ?? ?? ?? ?? ?? ?? 41 ?? ?? 8B ?? ?? ?? 00 00 44 ?? ?? ?? 66 ?? ?? ??");
         if (RenTex2DScanResult)
         {
+            RenTexPostLoad = safetyhook::create_inline(reinterpret_cast<void*>(RenTex2DScanResult), RenTexPostLoad_Hooked);
             spdlog::info("Render Texture 2D Resolution: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RenTex2DScanResult - (uintptr_t)baseModule);
-            static SafetyHookMid RenTex2DMidHook{};
-            RenTex2DMidHook = safetyhook::create_mid(RenTex2DScanResult,
-                [](SafetyHookContext& ctx)
-                {
-                    // Skip TextureRenderTargetFormat = RTF_RGBA16f from RT_Capture.uasset
-                    if ((ctx.rcx + 0x180) && (ctx.rcx + 0x184) && (*reinterpret_cast<BYTE*>(ctx.rcx + 0x19B) != 6))
-                    {
-                        if (fRenTexResMulti == 0)
-                        {
-                            // Calculate resolution multiplier assuming target is 1080p
-                            fRenTexResMulti = (iCustomResY * (fScreenPercentage / 100)) / 1080;
-                        }
-
-                        // Min = 50%, Max = 400%
-                        fRenTexResMulti = std::clamp(fRenTexResMulti, (float)0.5, (float)4);
-                        spdlog::info("Render Texture 2D Resolution: fRenTexResMulti = {}", fRenTexResMulti);
-
-                        int* pRenTexSizeX = reinterpret_cast<int*>(ctx.rcx + 0x180);
-                        int* pRenTexSizeY = reinterpret_cast<int*>(ctx.rcx + 0x184);
-                        int iRenTexSizeX = *pRenTexSizeX;
-                        int iRenTexSizeY = *pRenTexSizeY;
-
-                        spdlog::info("Render Texture 2D Resolution: Old render texture resolution = {}x{}", iRenTexSizeX, iRenTexSizeY);
-
-                        iRenTexSizeX *= fRenTexResMulti;
-                        iRenTexSizeY *= fRenTexResMulti;
-
-                        if (*pRenTexSizeX == 1920 && *pRenTexSizeY == 1080)
-                        {
-                            // Limit to fHUDWidth and fHUDHeight maximum since it breaks if its higher than that.
-                            iRenTexSizeX = min(iRenTexSizeX, (int)fHUDWidth);
-                            iRenTexSizeY = min(iRenTexSizeY, (int)fHUDHeight);
-                        } 
-
-                        // Limit to 16384x16384 maximum
-                        iRenTexSizeX = min(iRenTexSizeX, (int)16384);
-                        iRenTexSizeY = min(iRenTexSizeY, (int)16384);
-                          
-                        *pRenTexSizeX = iRenTexSizeX;
-                        *pRenTexSizeY = iRenTexSizeY;
-
-                        spdlog::info("Render Texture 2D Resolution: New render texture resolution = {}x{}", iRenTexSizeX, iRenTexSizeY);
-                        spdlog::info("----------");
-                    }
-                });
         }
         else if (!RenTex2DScanResult)
         {
             spdlog::error("Render Texture 2D Resolution: Pattern scan failed.");
-        }
-    }
+        } 
+    } 
 }
 
 void Framerate()
