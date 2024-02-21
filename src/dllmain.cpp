@@ -52,6 +52,8 @@ float fHUDHeightOffset;
 int iFadeStatus = 0; // Initialise as not fading.
 int iRenTexNo = 0;
 int iHasPassedIntro = 0;
+int iRTCapX = 1920;
+int iRTCapY = 1080;
 
 SafetyHookInline RenTexPostLoad{};
 void* RenTexPostLoad_Hooked(uint8_t* thisptr)
@@ -85,27 +87,31 @@ void* RenTexPostLoad_Hooked(uint8_t* thisptr)
     uint32_t* SizeY = (uint32_t*)(thisptr + 0x184);
     uint8_t* RTFormat = (uint8_t*)(thisptr + 0x19B);
 
-    if (*RTFormat != 6)
+    spdlog::info("Render Texture 2D Resolution: Old render texture resolution = {}x{}", *SizeX, *SizeY);
+
+    if (*SizeX == 1920 && *SizeY == 1080 && iRenTexNo < 4)
     {
-        spdlog::info("Render Texture 2D Resolution: Old render texture resolution = {}x{}", *SizeX, *SizeY);
-
-        if (*SizeX == 1920 && *SizeY == 1080 && iRenTexNo < 4)
-        {
-            // 1080p HUD
-            *SizeX *= fRenTexResMulti;
-            *SizeY *= fRenTexResMulti;
-            *SizeX = min(*SizeX, (uint32_t)fHUDWidth);
-            *SizeY = min(*SizeY, (uint32_t)fHUDHeight);
-            spdlog::info("Render Texture 2D Resolution : Clamped render texture resolution {} = {}x{}", iRenTexNo, *SizeX, *SizeY);
-        }
-        else
-        {
-            *SizeX *= fRenTexResMulti;
-            *SizeY *= fRenTexResMulti;
-        }
-
-        spdlog::info("Render Texture 2D Resolution: New render texture resolution = {}x{}", *SizeX, *SizeY);
+        // 1080p HUD
+        *SizeX *= fRenTexResMulti;
+        *SizeY *= fRenTexResMulti;
+        *SizeX = min(*SizeX, (uint32_t)fHUDWidth);
+        *SizeY = min(*SizeY, (uint32_t)fHUDHeight);
+        spdlog::info("Render Texture 2D Resolution: Clamped render texture resolution {} to {}x{}", iRenTexNo, *SizeX, *SizeY);
     }
+    else
+    {
+        *SizeX *= fRenTexResMulti;
+        *SizeY *= fRenTexResMulti;
+    }
+
+    if (*RTFormat == 6)
+    {
+        // Make note of RT_Capture SizeX and SizeY
+        iRTCapX = *SizeX;
+        iRTCapY = *SizeX;
+    }
+
+    spdlog::info("Render Texture 2D Resolution: New render texture resolution = {}x{}", *SizeX, *SizeY);
 
     iRenTexNo++;
     // Run original function
@@ -644,6 +650,28 @@ void GraphicalTweaks()
         {
             spdlog::error("Render Texture 2D Resolution: Pattern scan failed.");
         } 
+
+        // RT_Capture
+        uint8_t* RTCaptureScanResult = Memory::PatternScan(baseModule, "C7 ?? ?? ?? ?? 00 80 07 00 00 C7 ?? ?? ?? ?? 00 38 04 00 00 49 ?? ??");
+        if (RTCaptureScanResult)
+        {
+            spdlog::info("RT_Capture: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RTCaptureScanResult - (uintptr_t)baseModule);
+
+            static SafetyHookMid RTCaptureMidHook{};
+            RTCaptureMidHook = safetyhook::create_mid(RTCaptureScanResult + 0x14,
+                [](SafetyHookContext& ctx)
+                {
+                    if (ctx.rax + 0x1FC && ctx.rax + 0x200)
+                    {
+                        *reinterpret_cast<int*>(ctx.rax + 0x1FC) = iRTCapX;
+                        *reinterpret_cast<int*>(ctx.rax + 0x200) = iRTCapX;
+                    }
+                });
+        }
+        else if (!RTCaptureScanResult)
+        {
+            spdlog::error("RT_Capture: Pattern scan failed.");
+        }
     } 
 }
 
