@@ -51,6 +51,7 @@ float fHUDHeightOffset;
 // Variables
 int iFadeStatus = 0; // Initialise as not fading.
 int iRenTexNo = 0;
+int iHasPassedIntro = 0;
 
 SafetyHookInline RenTexPostLoad{};
 void* RenTexPostLoad_Hooked(uint8_t* thisptr)
@@ -302,12 +303,11 @@ void IntroSkip()
 
         // Skip network
         uint8_t* NetworkSkipScanResult = Memory::PatternScan(baseModule, "41 ?? 48 ?? ?? ?? 48 ?? ?? 8B ?? ?? 85 ??  0F ?? ?? ?? ?? ?? 33 ?? 83 ?? 01");
-        if (NetworkSkipScanResult)
+        uint8_t* NetworkSkipDialogScanResult = Memory::PatternScan(baseModule, "E8 ?? ?? ?? ?? 84 ?? 0F ?? ?? ?? ?? 00 83 ?? ?? 04 C7 ?? ?? 03 00 00 00");
+        if (NetworkSkipScanResult && NetworkSkipDialogScanResult)
         {
             spdlog::info("Network Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)NetworkSkipScanResult - (uintptr_t)baseModule);
-            //Memory::Write((uintptr_t)NetworkSkipScanResult + 0x6, (BYTE)3);
 
-            // TODO: Currently this only defaults the network features to enabled. It does not skip the "OK" dialog.
             static SafetyHookMid NetworkSkipMidHook{};
             NetworkSkipMidHook = safetyhook::create_mid(NetworkSkipScanResult,
                 [](SafetyHookContext& ctx)
@@ -316,9 +316,20 @@ void IntroSkip()
                     *reinterpret_cast<int*>(ctx.rcx + 0x38) = 1;
                 });
 
+            spdlog::info("Network Skip: Dialog: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)NetworkSkipDialogScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid NetworkSkipDialogMidHook{};
+            NetworkSkipDialogMidHook = safetyhook::create_mid(NetworkSkipDialogScanResult + 0x5,
+                [](SafetyHookContext& ctx)
+                {
+                    if (iHasPassedIntro == 0)
+                    {
+                        ctx.rax = (BYTE)1;
+                    }
+                });
+
             spdlog::info("Network Skip: Skipped over network dialog.");
         }
-        else if (!NetworkSkipScanResult)
+        else if (!NetworkSkipScanResult || NetworkSkipDialogScanResult)
         {
             spdlog::error("Network Skip: Pattern scan failed.");
         }
@@ -347,9 +358,14 @@ void IntroSkip()
                 break;
             }
 
-            // Patch instruction to skip to desired intro state
-            Memory::PatchBytes((uintptr_t)IntroSkipScanResult, "\xB0\x03", 2);
-            Memory::Write((uintptr_t)IntroSkipScanResult + 0x1, (BYTE)iSkipLogos);
+            static SafetyHookMid IntroSkipMidHook{};
+            IntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult + 0x2,
+                [](SafetyHookContext& ctx)
+                {
+                    ctx.rax = (BYTE)iSkipLogos;
+                    iHasPassedIntro = 1;
+                });
+
             spdlog::info("Intro Skip: Skipped intro to title state {}.", iSkipLogos);
         }
         else if (!IntroSkipScanResult)
