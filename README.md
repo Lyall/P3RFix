@@ -10,6 +10,8 @@ This is a fix that adds custom resolutions, ultrawide support and more to Person
 - Correct FOV at any aspect ratio.
 - Configurable intro skip.
 - Render scale override.
+- Control over pausing when alt+tabbed.
+- The ability to increase/decrease resolution of render texture targets (i.e menus, persona model previews).
 
 ## Installation
 - Grab the latest release of P3RFix from [here.](https://github.com/Lyall/P3RFix/releases)
