@@ -55,6 +55,7 @@ int iHasPassedIntro = 0;
 int iRTCapX = 1920;
 int iRTCapY = 1080;
 float fRenTexResMulti = 1.0f;
+BYTE iWindowFocusStatus = 0;
 
 SafetyHookInline RenTexPostLoad{};
 void* RenTexPostLoad_Hooked(uint8_t* thisptr)
@@ -703,22 +704,38 @@ void Framerate()
 
 void Miscellaneous()
 {
-    if (!bPauseOnFocusLoss)
+    // Window focus
+    uint8_t* WindowFocusScanResult = Memory::PatternScan(baseModule, "83 ?? ?? ?? 00 48 ?? ?? ?? 48 ?? ?? 0F ?? ?? FF ?? 38 ?? 00 00");
+    if (WindowFocusScanResult)
     {
-        // Pause on focus loss
-        uint8_t* WindowFocusScanResult = Memory::PatternScan(baseModule, "83 ?? ?? ?? 00 48 ?? ?? ?? 48 ?? ?? 0F ?? ?? FF ?? 38 ?? 00 00");
-        if (WindowFocusScanResult)
-        {
-            spdlog::info("Window Focus: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)WindowFocusScanResult - (uintptr_t)baseModule);
-            Memory::PatchBytes((uintptr_t)WindowFocusScanResult + 0x4, "\x7F", 1);
-            spdlog::info("Window Focus: Patched instruction.");
+        spdlog::info("Window Focus: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)WindowFocusScanResult - (uintptr_t)baseModule);
 
-        }
-        else if (!WindowFocusScanResult)
-        {
-            spdlog::error("Window Focus: Pattern scan failed.");
-        }
+        static SafetyHookMid WindowFocusMidHook{};
+        WindowFocusMidHook = safetyhook::create_mid(WindowFocusScanResult + 0xC,
+            [](SafetyHookContext& ctx)
+            {
+                if (!bPauseOnFocusLoss)
+                {
+                    // or ZF rflag
+                    ctx.rflags &= 0x40;
+                }
+
+                if ((uint8_t)ctx.rflags + 0x40 == (uint8_t)66)
+                {
+                    iWindowFocusStatus = 1;
+                }
+                else if ((uint8_t)ctx.rflags + 0x40 == (uint8_t)134)
+                {
+                    iWindowFocusStatus = 0;
+                }
+            });
+
     }
+    else if (!WindowFocusScanResult)
+    {
+        spdlog::error("Window Focus: Pattern scan failed.");
+    }
+
 }
 
 DWORD __stdcall Main(void*)
