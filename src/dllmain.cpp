@@ -54,6 +54,7 @@ int iRenTexNo = 0;
 int iHasPassedIntro = 0;
 int iRTCapX = 1920;
 int iRTCapY = 1080;
+float fRenTexResMulti = 1.0f;
 
 SafetyHookInline RenTexPostLoad{};
 void* RenTexPostLoad_Hooked(uint8_t* thisptr)
@@ -61,7 +62,11 @@ void* RenTexPostLoad_Hooked(uint8_t* thisptr)
     // Calculate optimal resolution multiplier assuming target is 1080p
     // Screen percentage is only retrieved when the hook is run, meaning that on first boot we have to assume it is 100%
     float fOptimalRenTexResMulti = (iCustomResY * (fScreenPercentage / 100)) / 1080;
-    float fRenTexResMulti;
+    if (iCustomResX <= 1920 || iCustomResX <= 1080)
+    {
+        // Avoid lowering resolution of render targets when resolution is <1080p.
+        fOptimalRenTexResMulti = 1.0f;
+    }
 
     if (fRenTexResUserMulti == 1.0f)
     {
@@ -74,14 +79,13 @@ void* RenTexPostLoad_Hooked(uint8_t* thisptr)
         fRenTexResMulti = fOptimalRenTexResMulti * fRenTexResUserMulti;
     }
 
-    // Min = 25%, Max = 400%
-    fRenTexResMulti = std::clamp(fRenTexResMulti, (float)0.25, (float)4);
-    spdlog::info("Render Texture 2D Resolution: fRenTexResMulti = {}", fRenTexResMulti);
-
     if (fRenTexResMulti < 0.25f || fRenTexResMulti > 4.0f)
     {
-        spdlog::warn("Render Texture 2D Resolution: fRenTexResMulti value invalid, clamped to = {}", fRenTexResMulti);
+        // Min = 25%, Max = 400%
+        fRenTexResMulti = std::clamp(fRenTexResMulti, (float)0.25, (float)4);
+        spdlog::warn("Render Texture 2D Resolution: fRenTexResMulti value invalid, clamped to {}", fRenTexResMulti);
     }
+    spdlog::info("Render Texture 2D Resolution: fRenTexResMulti = {}", fRenTexResMulti);
 
     uint32_t* SizeX = (uint32_t*)(thisptr + 0x180);
     uint32_t* SizeY = (uint32_t*)(thisptr + 0x184);
@@ -89,20 +93,8 @@ void* RenTexPostLoad_Hooked(uint8_t* thisptr)
 
     spdlog::info("Render Texture 2D Resolution: Old render texture resolution = {}x{}", *SizeX, *SizeY);
 
-    if (*SizeX == 1920 && *SizeY == 1080 && iRenTexNo < 4)
-    {
-        // 1080p HUD
-        *SizeX *= fRenTexResMulti;
-        *SizeY *= fRenTexResMulti;
-        *SizeX = min(*SizeX, (uint32_t)fHUDWidth);
-        *SizeY = min(*SizeY, (uint32_t)fHUDHeight);
-        spdlog::info("Render Texture 2D Resolution: Clamped render texture resolution {} to {}x{}", iRenTexNo, *SizeX, *SizeY);
-    }
-    else
-    {
-        *SizeX *= fRenTexResMulti;
-        *SizeY *= fRenTexResMulti;
-    }
+    *SizeX *= fRenTexResMulti;
+    *SizeY *= fRenTexResMulti;
 
     if (*RTFormat == 6)
     {
@@ -245,7 +237,13 @@ void ReadConfig()
         spdlog::warn("Config Parse: fScreenPercentage value invalid, clamped to {}", fScreenPercentage);
     }
     spdlog::info("Config Parse: bRenTexResMulti: {}", bRenTexResMulti);
-    spdlog::info("Config Parse: fRenTexResMulti: {}", fRenTexResUserMulti); // Don't need to clamp this as we'll do it later.
+    spdlog::info("Config Parse: fRenTexResUserMulti = {}", fRenTexResUserMulti);
+    if (fRenTexResUserMulti < 0.25f || fRenTexResUserMulti > 4.0f)
+    {
+        // Min = 25%, Max = 400%
+        fRenTexResUserMulti = std::clamp(fRenTexResUserMulti, (float)0.25, (float)4);
+        spdlog::warn("Config Parse: fRenTexResUserMulti value invalid, clamped to {}", fRenTexResUserMulti);
+    }
     spdlog::info("Config Parse: bAdjustFPSCap: {}", bAdjustFPSCap);
     spdlog::info("Config Parse: fFramerateCap: {}", fFramerateCap);
     spdlog::info("----------");
@@ -489,15 +487,8 @@ void HUDFix()
             HUDConstraintsMidHook = safetyhook::create_mid(HUDConstraintsScanResult,
                 [](SafetyHookContext& ctx)
                 {
-                    if (iCustomResX > 1920)
-                    {
-                        ctx.rcx = iCustomResX;
-                    }
-                   
-                    if (iCustomResY > 1080)
-                    {
-                        ctx.rax = iCustomResY;
-                    }
+                    ctx.rcx = INT32_MAX;
+                    ctx.rax = INT32_MAX;
                 });
 
             static SafetyHookMid HUDConstraints1MidHook{};
@@ -611,31 +602,31 @@ void Fades()
 
 void GraphicalTweaks()
 {
-        // Screen Percentage
-        uint8_t* ScreenPercentageScanResult = Memory::PatternScan(baseModule, "0F ?? ?? F3 0F ?? ?? ?? 0F ?? ?? F3 0F ?? ?? ?? ?? ?? ?? 0F ?? ?? 77 ?? F3 0F ?? ?? ?? ?? ?? ?? 48 ?? ?? ?? ?? 48 ?? ?? 20 5F C3");
-        if (ScreenPercentageScanResult)
-        {
-            spdlog::info("Screen Percentage: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ScreenPercentageScanResult - (uintptr_t)baseModule);
+    // Screen Percentage
+    uint8_t* ScreenPercentageScanResult = Memory::PatternScan(baseModule, "0F ?? ?? F3 0F ?? ?? ?? 0F ?? ?? F3 0F ?? ?? ?? ?? ?? ?? 0F ?? ?? 77 ?? F3 0F ?? ?? ?? ?? ?? ?? 48 ?? ?? ?? ?? 48 ?? ?? 20 5F C3");
+    if (ScreenPercentageScanResult)
+    {
+        spdlog::info("Screen Percentage: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ScreenPercentageScanResult - (uintptr_t)baseModule);
 
-            static SafetyHookMid ScreenPercentageMidHook{};
-            ScreenPercentageMidHook = safetyhook::create_mid(ScreenPercentageScanResult + 0x3,
-                [](SafetyHookContext& ctx)
+        static SafetyHookMid ScreenPercentageMidHook{};
+        ScreenPercentageMidHook = safetyhook::create_mid(ScreenPercentageScanResult + 0x3,
+            [](SafetyHookContext& ctx)
+            {
+                if (bScreenPercentage)
                 {
-                    if (bScreenPercentage)
-                    {
-                        *reinterpret_cast<float*>(ctx.rdi + (ctx.rbx * 4)) = (float)fScreenPercentage;
-                    }
-                    else
-                    {
-                        // Grab screen percentage value if not applied by user.
-                        fScreenPercentage = *reinterpret_cast<float*>(ctx.rdi + (ctx.rbx * 4));
-                    }
-                });
-        }
-        else if (!ScreenPercentageScanResult)
-        {
-            spdlog::error("Screen Percentage: Pattern scan failed.");
-        }
+                    *reinterpret_cast<float*>(ctx.rdi + (ctx.rbx * 4)) = (float)fScreenPercentage;
+                }
+                else
+                {
+                    // Grab screen percentage value if not applied by user.
+                    fScreenPercentage = *reinterpret_cast<float*>(ctx.rdi + (ctx.rbx * 4));
+                }
+            });
+    }
+    else if (!ScreenPercentageScanResult)
+    {
+        spdlog::error("Screen Percentage: Pattern scan failed.");
+    }
 
     if (bRenTexResMulti)
     {
