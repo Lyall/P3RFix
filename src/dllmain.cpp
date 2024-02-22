@@ -711,23 +711,14 @@ void Miscellaneous()
         spdlog::info("Window Focus: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)WindowFocusScanResult - (uintptr_t)baseModule);
 
         static SafetyHookMid WindowFocusMidHook{};
-        WindowFocusMidHook = safetyhook::create_mid(WindowFocusScanResult + 0xC,
+        WindowFocusMidHook = safetyhook::create_mid(WindowFocusScanResult + 0xF,
             [](SafetyHookContext& ctx)
             {
                 if (!bPauseOnFocusLoss)
                 {
-                    // or ZF rflag
-                    ctx.rflags &= 0x40;
+                    ctx.rdx |= 1;
                 }
-
-                if ((uint8_t)ctx.rflags + 0x40 == (uint8_t)66)
-                {
-                    iWindowFocusStatus = 1;
-                }
-                else if ((uint8_t)ctx.rflags + 0x40 == (uint8_t)134)
-                {
-                    iWindowFocusStatus = 0;
-                }
+                iWindowFocusStatus = ctx.rdx & 0xFF;
             });
 
     }
@@ -735,7 +726,6 @@ void Miscellaneous()
     {
         spdlog::error("Window Focus: Pattern scan failed.");
     }
-
 }
 
 DWORD __stdcall Main(void*)
