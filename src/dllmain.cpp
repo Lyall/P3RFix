@@ -90,6 +90,7 @@ void* RenTexPostLoad_Hooked(uint8_t* thisptr)
     uint32_t* SizeX = (uint32_t*)(thisptr + 0x180);
     uint32_t* SizeY = (uint32_t*)(thisptr + 0x184);
     uint8_t* RTFormat = (uint8_t*)(thisptr + 0x19B);
+    uint32_t* LightingGUID = (uint32_t*)(thisptr + 0x68);
 
     spdlog::info("Render Texture 2D Resolution: Old render texture resolution = {}x{}", *SizeX, *SizeY);
 
@@ -100,7 +101,7 @@ void* RenTexPostLoad_Hooked(uint8_t* thisptr)
     {
         // Make note of RT_Capture SizeX and SizeY
         iRTCapX = *SizeX;
-        iRTCapY = *SizeX;
+        iRTCapY = *SizeY;
     }
 
     spdlog::info("Render Texture 2D Resolution: New render texture resolution = {}x{}", *SizeX, *SizeY);
@@ -489,20 +490,14 @@ void HUDFix()
                 {
                     ctx.rcx = INT32_MAX;
                     ctx.rax = INT32_MAX;
-                });
-
-            static SafetyHookMid HUDConstraints1MidHook{};
-            HUDConstraints1MidHook = safetyhook::create_mid(HUDConstraintsScanResult + 0x11,
-                [](SafetyHookContext& ctx)
-                {
-                    ctx.r8 = 0;
-                    ctx.rdx = 0;
+                    ctx.xmm2.f32[0] = 0.0f;
+                    ctx.xmm4.f32[0] = 0.0f;
                 });
         }
         else if (!HUDConstraintsScanResult)
         {
             spdlog::error("HUD Constraints: Pattern scan failed.");
-        }        
+        }
     }
 }
 
@@ -654,7 +649,7 @@ void GraphicalTweaks()
                     if (ctx.rax + 0x1FC && ctx.rax + 0x200)
                     {
                         *reinterpret_cast<int*>(ctx.rax + 0x1FC) = iRTCapX;
-                        *reinterpret_cast<int*>(ctx.rax + 0x200) = iRTCapX;
+                        *reinterpret_cast<int*>(ctx.rax + 0x200) = iRTCapY;
                     }
                 });
         }
