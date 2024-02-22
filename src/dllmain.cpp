@@ -350,7 +350,7 @@ void IntroSkip()
             {
             // Opening Movie
             case 1:
-                iSkipLogos = 3;
+                iSkipLogos = 4;
                 break;
 
             // Main Menu
