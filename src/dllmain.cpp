@@ -554,7 +554,7 @@ void Fades()
                             }
                         }
 
-                        if (ctx.xmm2.f32[0] == (float)1920 && ctx.xmm3.f32[0] == 0.0f && ctx.xmm10.f32[0] != 1920.0f && ctx.xmm10.f32[0] != 1920.0f)
+                        if (ctx.xmm2.f32[0] == (float)1920 && ctx.xmm3.f32[0] == 0.0f && ctx.xmm10.f32[0] != 1920.0f)
                         {
                             if (fAspectRatio > fNativeAspect)
                             {
