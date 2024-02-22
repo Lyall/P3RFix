@@ -558,7 +558,7 @@ void Fades()
                         {
                             if (fAspectRatio > fNativeAspect)
                             {
-                                ctx.xmm2.f32[0] *= fAspectRatio;
+                                ctx.xmm2.f32[0] = 1080 * fAspectRatio;
                             }
                             else if (fAspectRatio < fNativeAspect)
                             {
@@ -574,7 +574,7 @@ void Fades()
                             }
                             else if (fAspectRatio < fNativeAspect)
                             {
-                                ctx.xmm3.f32[0] /= fAspectRatio;
+                                ctx.xmm3.f32[0] = 1920 / fAspectRatio;
                             }
                         }
 
@@ -582,16 +582,15 @@ void Fades()
                         {
                             if (fAspectRatio > fNativeAspect)
                             {
-                                ctx.xmm2.f32[0] *= fAspectRatio;
+                                ctx.xmm2.f32[0] = 1080 * fAspectRatio;
                             }
                             else if (fAspectRatio < fNativeAspect)
                             {
-                                ctx.xmm3.f32[0] /= fAspectRatio;
+                                ctx.xmm3.f32[0] = 1920 / fAspectRatio;
                             }
                         }
                     }
                 });
-
         }
         else if (!FadesScanResult)
         {
