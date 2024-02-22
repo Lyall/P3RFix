@@ -475,7 +475,7 @@ void AspectFOVFix()
 
 void HUDFix()
 {
-    if (bHUDFix)
+    if (bHUDFix || bRenTexResMulti)
     {
         // Remove constraints on HUD
         uint8_t* HUDConstraintsScanResult = Memory::PatternScan(baseModule, "89 ?? ?? ?? F3 ?? ?? ?? ?? 89 ?? ?? ?? F3 0F ?? ?? 44 ?? ?? ?? ?? 0F ?? ?? 89 ?? ?? ?? 0F ?? ??");
@@ -542,7 +542,7 @@ void Fades()
                     // Only modify values when we are in a fade transition
                     if (iFadeStatus != 0)
                     {
-                        if (ctx.xmm2.f32[0] == 0.0f && ctx.xmm3.f32[0] == 0.0f)
+                        if (ctx.xmm2.f32[0] == 0.0f && ctx.xmm3.f32[0] == 0.0f && ctx.xmm10.f32[0] != 1920.0f)
                         {
                             if (fAspectRatio > fNativeAspect)
                             {
@@ -554,7 +554,7 @@ void Fades()
                             }
                         }
 
-                        if (ctx.xmm2.f32[0] == (float)1920 && ctx.xmm3.f32[0] == 0.0f)
+                        if (ctx.xmm2.f32[0] == (float)1920 && ctx.xmm3.f32[0] == 0.0f && ctx.xmm10.f32[0] != 1920.0f && ctx.xmm10.f32[0] != 1920.0f)
                         {
                             if (fAspectRatio > fNativeAspect)
                             {
@@ -566,7 +566,7 @@ void Fades()
                             }
                         }
 
-                        if (ctx.xmm2.f32[0] == 0.0f && ctx.xmm3.f32[0] == (float)1080)
+                        if (ctx.xmm2.f32[0] == 0.0f && ctx.xmm3.f32[0] == (float)1080 && ctx.xmm10.f32[0] != 1920.0f)
                         {
                             if (fAspectRatio > fNativeAspect)
                             {
@@ -578,7 +578,7 @@ void Fades()
                             }
                         }
 
-                        if (ctx.xmm2.f32[0] == (float)1920 && ctx.xmm3.f32[0] == (float)1080)
+                        if (ctx.xmm2.f32[0] == (float)1920 && ctx.xmm3.f32[0] == (float)1080 && ctx.xmm10.f32[0] != 1920.0f)
                         {
                             if (fAspectRatio > fNativeAspect)
                             {
