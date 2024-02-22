@@ -50,6 +50,7 @@ Please report any issues you see.
 This list will contain bugs which may or may not be fixed.
 
 - Some screen fades/transitions may not span the screen.
+- If you skip intro to the load save menu, then back out, you will softlock the game.
 
 ## Screenshots
 
