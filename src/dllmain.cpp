@@ -26,7 +26,7 @@ bool bHUDFix;
 bool bAspectFix;
 bool bFOVFix;
 bool bSkipLogos;
-int iSkipLogos;
+int iSkipLogos = 2;
 bool bUncapMenuFPS;
 bool bAdjustFPSCap;
 float fFramerateCap;
@@ -339,6 +339,7 @@ void IntroSkip()
         {
             spdlog::error("Network Skip: Pattern scan failed.");
         }
+
         // Skip intro after network option
         uint8_t* IntroSkipScanResult = Memory::PatternScan(baseModule, "B0 03 0F ?? ?? ?? ?? ?? ?? 00 44 ?? ?? ?? ?? ?? ?? ?? 00");
         uint8_t* OpeningMovieScanResult = Memory::PatternScan(baseModule, "80 ?? ?? 00 0F ?? ?? ?? ?? ?? ?? 00 74 ?? F3 ?? ?? ?? ?? ??");
@@ -352,12 +353,10 @@ void IntroSkip()
             case 1:
                 iSkipLogos = 4;
                 break;
-
                 // Main Menu
             case 2:
                 iSkipLogos = 5;
                 break;
-
                 // Load Save Menu
             case 3:
                 iSkipLogos = 8;
@@ -370,7 +369,13 @@ void IntroSkip()
             }
             else
             {
-                Memory::Write((uintptr_t)IntroSkipScanResult + 0x1, (BYTE)iSkipLogos);
+                static SafetyHookMid IntroSkipMidHook{};
+                IntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult + 0x2,
+                    [](SafetyHookContext& ctx)
+                    {
+                            ctx.rax |= (BYTE)iSkipLogos;
+                            iHasPassedIntro = 1;
+                    });
             }
 
             spdlog::info("Intro Skip: Skipped intro to title state {}.", iSkipLogos);
