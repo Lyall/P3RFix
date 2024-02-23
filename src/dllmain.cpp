@@ -10,7 +10,7 @@ HMODULE baseModule = GetModuleHandle(NULL);
 // Logger and config setup
 inipp::Ini<char> ini;
 string sFixName = "P3RFix";
-string sFixVer = "1.1.3";
+string sFixVer = "1.1.4";
 string sLogFile = "P3RFix.log";
 string sConfigFile = "P3RFix.ini";
 string sExeName;
@@ -339,42 +339,43 @@ void IntroSkip()
         {
             spdlog::error("Network Skip: Pattern scan failed.");
         }
-
         // Skip intro after network option
-        uint8_t* IntroSkipScanResult = Memory::PatternScan(baseModule, "B0 03 0F ?? ?? ?? ?? ?? 00 00 44 ?? ?? ?? ?? ?? ?? 00 00");
-        if (IntroSkipScanResult)
+        uint8_t* IntroSkipScanResult = Memory::PatternScan(baseModule, "B0 03 0F ?? ?? ?? ?? ?? ?? 00 44 ?? ?? ?? ?? ?? ?? ?? 00");
+        uint8_t* OpeningMovieScanResult = Memory::PatternScan(baseModule, "80 ?? ?? 00 0F ?? ?? ?? ?? ?? ?? 00 74 ?? F3 ?? ?? ?? ?? ??");
+        if (IntroSkipScanResult && OpeningMovieScanResult)
         {
             spdlog::info("Intro Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)IntroSkipScanResult - (uintptr_t)baseModule);
 
             switch (iSkipLogos)
             {
-            // Opening Movie
+                // Opening Movie
             case 1:
                 iSkipLogos = 4;
                 break;
 
-            // Main Menu
+                // Main Menu
             case 2:
                 iSkipLogos = 5;
                 break;
 
-            // Load Save Menu
+                // Load Save Menu
             case 3:
                 iSkipLogos = 8;
                 break;
             }
 
-            static SafetyHookMid IntroSkipMidHook{};
-            IntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult + 0x2,
-                [](SafetyHookContext& ctx)
-                {
-                    ctx.rax = (BYTE)iSkipLogos;
-                    iHasPassedIntro = 1;
-                });
+            if (iSkipLogos == 4)
+            {
+                Memory::PatchBytes((uintptr_t)OpeningMovieScanResult + 0xD, "\x1A", 1);
+            }
+            else
+            {
+                Memory::Write((uintptr_t)IntroSkipScanResult + 0x1, (BYTE)iSkipLogos);
+            }
 
             spdlog::info("Intro Skip: Skipped intro to title state {}.", iSkipLogos);
         }
-        else if (!IntroSkipScanResult)
+        else if (!IntroSkipScanResult || !OpeningMovieScanResult)
         {
             spdlog::error("Intro Skip: Pattern scan failed.");
         }
