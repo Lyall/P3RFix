@@ -51,7 +51,6 @@ This list will contain bugs which may or may not be fixed.
 
 - Some screen fades/transitions may not span the screen at non-16:9 resolutions.
 - If you skip intro to the load save menu, then back out, you will softlock the game.
-- If you skip intro to the opening movie, you will be softlocked after the movie.
 
 ## Screenshots
 
