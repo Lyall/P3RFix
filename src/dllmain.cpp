@@ -367,17 +367,21 @@ void IntroSkip()
             {
                 Memory::PatchBytes((uintptr_t)OpeningMovieScanResult + 0xD, "\x1A", 1);
             }
-            else
-            {
-                static SafetyHookMid IntroSkipMidHook{};
-                IntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult + 0x2,
-                    [](SafetyHookContext& ctx)
+
+            static SafetyHookMid IntroSkipMidHook{};
+            IntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult + 0x2,
+                [](SafetyHookContext& ctx)
+                {
+                    if (iSkipLogos != 4)
                     {
+                        // Clear last byte
                         ctx.rax &= ~(0xFF);
+                        // Set last byte
                         ctx.rax |= (BYTE)iSkipLogos;
-                        iHasPassedIntro = 1;
-                    });
-            }
+                    }
+                    iHasPassedIntro = 1;
+                });
+           
 
             spdlog::info("Intro Skip: Skipped intro to title state {}.", iSkipLogos);
         }
