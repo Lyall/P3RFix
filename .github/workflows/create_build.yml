@@ -12,16 +12,18 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: 'true'
+
+    - name: Test1
+      id: t1
+      uses: Kaven-Universe/github-action-current-date-time@v1
+      with:
+        format: "YYYY_MM_DD HH_mm_ss_SSS"
         
     - name: setup-msbuild
       uses: microsoft/setup-msbuild@v1.1
       
     - run: msbuild ${{ github.event.repository.name }}.sln -t:rebuild -verbosity:diag -property:Configuration=Release -property:Platform=x64
     - run: cp x64\Release\${{ github.event.repository.name }}.asi ${{ github.event.repository.name }}.asi
-
-    - uses: Kaven-Universe/github-action-current-date-time@v1
-      with:
-        format: "YYYY_MM_DD HH_mm_ss_SSS"
 
     - uses: robinraju/release-downloader@v1.8
       with:
@@ -37,10 +39,10 @@ jobs:
     - run: cp dinput8.dll .\zip\P3R\Binaries\WinGDK\dsound.dll; cp dinput8.dll .\zip\P3R\Binaries\Win64\dsound.dll
     - run: cp UltimateASILoader_LICENSE.md .\zip\P3R\Binaries\WinGDK\; cp UltimateASILoader_LICENSE.md .\zip\P3R\Binaries\Win64\
     - run: New-Item -Path ".\zip\EXTRACT_TO_GAME_FOLDER" -ItemType File
-    - run: cd .\zip\; 7z a -r -tzip ..\${{ github.event.repository.name }}_${{ steps.outputs.day }}_${{ steps.outputs.hours }}_${{ steps.outputs.minutes }}_test.zip .\*
+    - run: cd .\zip\; 7z a -r -tzip ..\${{ github.event.repository.name }}_${{ steps.t1.outputs.day }}_${{ steps.t1.outputs.hours }}_${{ steps.t1.outputs.minutes }}_test.zip .\*
     
     - uses: actions/upload-artifact@v4
       with:
-        name: ${{ github.event.repository.name }}_${{ steps.outputs.day }}_${{ steps.outputs.hours }}_${{ steps.outputs.minutes }}_test
-        path: .\${{ github.event.repository.name }}_${{ steps.outputs.day }}_${{ steps.outputs.hours }}_${{ steps.outputs.minutes }}_test.zip
+        name: ${{ github.event.repository.name }}_${{ steps.t1.outputs.day }}_${{ steps.t1.outputs.hours }}_${{ steps.t1.outputs.minutes }}_test
+        path: .\${{ github.event.repository.name }}_${{ steps.t1.outputs.day }}_${{ steps.t1.outputs.hours }}_${{ steps.t1.outputs.minutes }}_test.zip
         retention-days: 30
