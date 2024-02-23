@@ -1,4 +1,4 @@
-name: create-release
+name: create-build
 
 on:
   workflow_dispatch:
