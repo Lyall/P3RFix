@@ -52,8 +52,6 @@ float fHUDHeightOffset;
 int iFadeStatus = 0; // Initialise as not fading.
 int iRenTexNo = 0;
 int iHasPassedIntro = 0;
-int iRTCapX = 1920;
-int iRTCapY = 1080;
 float fRenTexResMulti = 1.0f;
 BYTE iWindowFocusStatus = 0;
 
@@ -100,9 +98,8 @@ void* RenTexPostLoad_Hooked(uint8_t* thisptr)
 
     if (*RTFormat == 6)
     {
-        // Make note of RT_Capture SizeX and SizeY
-        iRTCapX = *SizeX;
-        iRTCapY = *SizeY;
+        *SizeX = (int)iCustomResX * (fScreenPercentage / 100);
+        *SizeY = (int)iCustomResY * (fScreenPercentage / 100);
     }
 
     spdlog::info("Render Texture 2D Resolution: New render texture resolution = {}x{}", *SizeX, *SizeY);
@@ -660,8 +657,8 @@ void GraphicalTweaks()
                 {
                     if (ctx.rax + 0x1FC && ctx.rax + 0x200)
                     {
-                        *reinterpret_cast<int*>(ctx.rax + 0x1FC) = iRTCapX;
-                        *reinterpret_cast<int*>(ctx.rax + 0x200) = iRTCapY;
+                        *reinterpret_cast<int*>(ctx.rax + 0x1FC) = (int)iCustomResX * (fScreenPercentage / 100);
+                        *reinterpret_cast<int*>(ctx.rax + 0x200) = (int)iCustomResY* (fScreenPercentage / 100);
                     }
                 });
         }
