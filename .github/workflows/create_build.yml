@@ -1,0 +1,35 @@
+name: create-release
+
+on:
+  workflow_dispatch:
+        
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'true'
+
+    - name: setup-msbuild
+      uses: microsoft/setup-msbuild@v1.1
+      
+    - run: msbuild ${{ github.event.repository.name }}.sln -t:rebuild -verbosity:diag -property:Configuration=Release -property:Platform=x64
+    - run: cp x64\Release\${{ github.event.repository.name }}.asi ${{ github.event.repository.name }}.asi
+
+    - uses: robinraju/release-downloader@v1.8
+      with:
+        repository: "ThirteenAG/Ultimate-ASI-Loader"
+        latest: true
+        fileName: "Ultimate-ASI-Loader_x64.zip"
+    - run: unzip Ultimate-ASI-Loader_x64.zip -d .\; echo [GlobalSets]`nDontLoadFromDllMain=0 > .\dsound.ini; C:\msys64\usr\bin\wget.exe -O .\UltimateASILoader_LICENSE.md https://raw.githubusercontent.com/ThirteenAG/Ultimate-ASI-Loader/master/license
+    - run: mkdir .\zip\P3R\Binaries\WinGDK; mkdir .\zip\P3R\Binaries\Win64
+    - run: cp ${{ github.event.repository.name }}.asi .\zip\P3R\Binaries\WinGDK\; cp ${{ github.event.repository.name }}.asi .\zip\P3R\Binaries\Win64\
+    - run: cp ${{ github.event.repository.name }}.ini .\zip\P3R\Binaries\WinGDK\; cp ${{ github.event.repository.name }}.ini .\zip\P3R\Binaries\Win64\
+    - run: cp dsound.ini .\zip\P3R\Binaries\WinGDK\; cp dsound.ini .\zip\P3R\Binaries\Win64\
+    - run: cp dinput8.dll .\zip\P3R\Binaries\WinGDK\dsound.dll; cp dinput8.dll .\zip\P3R\Binaries\Win64\dsound.dll
+    - run: cp UltimateASILoader_LICENSE.md .\zip\P3R\Binaries\WinGDK\; cp UltimateASILoader_LICENSE.md .\zip\P3R\Binaries\Win64\
+    - run: New-Item -Path ".\zip\EXTRACT_TO_GAME_FOLDER" -ItemType File
+    - run: cd .\zip\; 7z a -r -tzip ..\${{ github.event.repository.name }}_${{ github.event.inputs.version }}.zip .\*
