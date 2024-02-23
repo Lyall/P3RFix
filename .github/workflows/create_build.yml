@@ -33,3 +33,9 @@ jobs:
     - run: cp UltimateASILoader_LICENSE.md .\zip\P3R\Binaries\WinGDK\; cp UltimateASILoader_LICENSE.md .\zip\P3R\Binaries\Win64\
     - run: New-Item -Path ".\zip\EXTRACT_TO_GAME_FOLDER" -ItemType File
     - run: cd .\zip\; 7z a -r -tzip ..\${{ github.event.repository.name }}_${{ github.event.inputs.version }}_test.zip .\*
+    
+    - uses: actions/upload-artifact@v4
+      with:
+        name: Test build
+        path: .\${{ github.event.repository.name }}_${{ github.event.inputs.version }}_test.zip
+        retention-days: 30
