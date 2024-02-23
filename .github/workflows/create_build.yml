@@ -32,4 +32,4 @@ jobs:
     - run: cp dinput8.dll .\zip\P3R\Binaries\WinGDK\dsound.dll; cp dinput8.dll .\zip\P3R\Binaries\Win64\dsound.dll
     - run: cp UltimateASILoader_LICENSE.md .\zip\P3R\Binaries\WinGDK\; cp UltimateASILoader_LICENSE.md .\zip\P3R\Binaries\Win64\
     - run: New-Item -Path ".\zip\EXTRACT_TO_GAME_FOLDER" -ItemType File
-    - run: cd .\zip\; 7z a -r -tzip ..\${{ github.event.repository.name }}_${{ github.event.inputs.version }}.zip .\*
+    - run: cd .\zip\; 7z a -r -tzip ..\${{ github.event.repository.name }}_${{ github.event.inputs.version }}_test.zip .\*
