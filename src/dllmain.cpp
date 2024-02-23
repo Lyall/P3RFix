@@ -26,7 +26,7 @@ bool bHUDFix;
 bool bAspectFix;
 bool bFOVFix;
 bool bSkipLogos;
-int iSkipLogos = 2;
+int iSkipLogos;
 bool bUncapMenuFPS;
 bool bAdjustFPSCap;
 float fFramerateCap;
@@ -373,8 +373,9 @@ void IntroSkip()
                 IntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult + 0x2,
                     [](SafetyHookContext& ctx)
                     {
-                            ctx.rax |= (BYTE)iSkipLogos;
-                            iHasPassedIntro = 1;
+                        ctx.rax &= ~(0xFF);
+                        ctx.rax |= (BYTE)iSkipLogos;
+                        iHasPassedIntro = 1;
                     });
             }
 
