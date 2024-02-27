@@ -34,7 +34,7 @@ To make sure P3RFix loads alongside any Reloaded II mods you are using, follow t
 
 - Set up Reloaded II and enable any mods you want as per the instructions on [GameBanana](https://gamebanana.com/tuts/17156).
 - In Reloaded II go to *Edit Application*, *Advanced Tools & Options*, *Deploy ASI Loader*.
-![asiloader_reloaded](https://github.com/SupDos/P3RFix/assets/6813986/fd843f9a-22b7-4200-8f6d-89ca6af885a7)
+![asiloader_reloaded](https://github.com/Lyall/P3RFix/assets/695941/79ad9641-ee10-48b0-a04f-ecc72908ad83)
 - Once this is done, open the game's binary folder (e.g. "**steamapps\common\P3R\P3R\Binaries\Win64**" for Steam).
 - You should see a *scripts* folder which Reloaded II created when deploying the ASI Loader.
 - Move *P3RFix.asi* into this folder.
