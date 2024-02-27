@@ -29,7 +29,7 @@ jobs:
         latest: true
         fileName: "Ultimate-ASI-Loader_x64.zip"
     - run: unzip Ultimate-ASI-Loader_x64.zip -d .\; echo [GlobalSets]`nDontLoadFromDllMain=0 > .\dsound.ini; C:\msys64\usr\bin\wget.exe -O .\UltimateASILoader_LICENSE.md https://raw.githubusercontent.com/ThirteenAG/Ultimate-ASI-Loader/master/license
-    - run: mkdir .\zip\Gamepass; mkdir .\zip\Steam
+    - run: mkdir .\zip\Gamepass\P3R\Binaries\WinGDK; mkdir .\zip\Steam\P3R\Binaries\Win64
     - run: cp ${{ github.event.repository.name }}.asi .\zip\Gamepass\P3R\Binaries\WinGDK\; cp ${{ github.event.repository.name }}.ini .\zip\Gamepass\P3R\Binaries\WinGDK\
     - run: cp dsound.ini .\zip\Gamepass\P3R\Binaries\WinGDK\; cp dinput8.dll .\zip\Gamepass\P3R\Binaries\WinGDK\dsound.dll; cp UltimateASILoader_LICENSE.md .\zip\Gamepass\P3R\Binaries\WinGDK\; New-Item -Path ".\zip\Gamepass\EXTRACT_TO_GAME_FOLDER" -ItemType File
     - run: cp ${{ github.event.repository.name }}.asi .\zip\Steam\P3R\Binaries\Win64\; cp ${{ github.event.repository.name }}.ini .\zip\Steam\P3R\Binaries\Win64\
