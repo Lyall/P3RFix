@@ -10,7 +10,7 @@ HMODULE baseModule = GetModuleHandle(NULL);
 // Logger and config setup
 inipp::Ini<char> ini;
 string sFixName = "P3RFix";
-string sFixVer = "1.1.4";
+string sFixVer = "1.1.5";
 string sLogFile = "P3RFix.log";
 string sConfigFile = "P3RFix.ini";
 string sExeName;
@@ -305,12 +305,13 @@ void IntroSkip()
         }
 
         // Skip network
-        uint8_t* NetworkSkipScanResult = Memory::PatternScan(baseModule, "41 ?? 48 ?? ?? ?? 48 ?? ?? 8B ?? ?? 85 ?? 0F ?? ?? ?? ?? ?? 33 ?? 83 ?? 01");
+        uint8_t* NetworkSkipScanResult = Memory::PatternScan(baseModule, "48 ?? ?? ?? 48 8B ?? 8B ?? 3C 85 ??");
         uint8_t* NetworkSkipDialogScanResult = Memory::PatternScan(baseModule, "E8 ?? ?? ?? ?? 84 ?? 0F ?? ?? ?? ?? 00 83 ?? ?? 04 C7 ?? ?? 03 00 00 00");
         if (NetworkSkipScanResult && NetworkSkipDialogScanResult)
         {
             spdlog::info("Network Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)NetworkSkipScanResult - (uintptr_t)baseModule);
-
+            
+            // Enable network functions
             static SafetyHookMid NetworkSkipMidHook{};
             NetworkSkipMidHook = safetyhook::create_mid(NetworkSkipScanResult,
                 [](SafetyHookContext& ctx)
@@ -320,6 +321,8 @@ void IntroSkip()
                 });
 
             spdlog::info("Network Skip: Dialog: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)NetworkSkipDialogScanResult - (uintptr_t)baseModule);
+
+            // Skip network functions confirmation dialog
             static SafetyHookMid NetworkSkipDialogMidHook{};
             NetworkSkipDialogMidHook = safetyhook::create_mid(NetworkSkipDialogScanResult + 0x5,
                 [](SafetyHookContext& ctx)
