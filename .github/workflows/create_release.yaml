@@ -29,18 +29,17 @@ jobs:
         latest: true
         fileName: "Ultimate-ASI-Loader_x64.zip"
     - run: unzip Ultimate-ASI-Loader_x64.zip -d .\; echo [GlobalSets]`nDontLoadFromDllMain=0 > .\dsound.ini; C:\msys64\usr\bin\wget.exe -O .\UltimateASILoader_LICENSE.md https://raw.githubusercontent.com/ThirteenAG/Ultimate-ASI-Loader/master/license
-    - run: mkdir .\zip\P3R\Binaries\WinGDK; mkdir .\zip\P3R\Binaries\Win64
-    - run: cp ${{ github.event.repository.name }}.asi .\zip\P3R\Binaries\WinGDK\; cp ${{ github.event.repository.name }}.asi .\zip\P3R\Binaries\Win64\
-    - run: cp ${{ github.event.repository.name }}.ini .\zip\P3R\Binaries\WinGDK\; cp ${{ github.event.repository.name }}.ini .\zip\P3R\Binaries\Win64\
-    - run: cp dsound.ini .\zip\P3R\Binaries\WinGDK\; cp dsound.ini .\zip\P3R\Binaries\Win64\
-    - run: cp dinput8.dll .\zip\P3R\Binaries\WinGDK\dsound.dll; cp dinput8.dll .\zip\P3R\Binaries\Win64\dsound.dll
-    - run: cp UltimateASILoader_LICENSE.md .\zip\P3R\Binaries\WinGDK\; cp UltimateASILoader_LICENSE.md .\zip\P3R\Binaries\Win64\
-    - run: New-Item -Path ".\zip\EXTRACT_TO_GAME_FOLDER" -ItemType File
-    - run: cd .\zip\; 7z a -r -tzip ..\${{ github.event.repository.name }}_${{ github.event.inputs.version }}.zip .\*
+    - run: mkdir .\zip\Gamepass; mkdir .\zip\Steam
+    - run: cp ${{ github.event.repository.name }}.asi .\zip\Gamepass\P3R\Binaries\WinGDK\; cp ${{ github.event.repository.name }}.ini .\zip\Gamepass\P3R\Binaries\WinGDK\
+    - run: cp dsound.ini .\zip\Gamepass\P3R\Binaries\WinGDK\; cp dinput8.dll .\zip\Gamepass\P3R\Binaries\WinGDK\dsound.dll; cp UltimateASILoader_LICENSE.md .\zip\Gamepass\P3R\Binaries\WinGDK\; New-Item -Path ".\zip\Gamepass\EXTRACT_TO_GAME_FOLDER" -ItemType File
+    - run: cp ${{ github.event.repository.name }}.asi .\zip\Steam\P3R\Binaries\Win64\; cp ${{ github.event.repository.name }}.ini .\zip\Steam\P3R\Binaries\Win64\
+    - run: cp dsound.ini .\zip\P3R\Binaries\Win64\; cp dinput8.dll .\zip\P3R\Binaries\Win64\dsound.dll; cp UltimateASILoader_LICENSE.md .\zip\Steam\P3R\Binaries\Win64\; New-Item -Path ".\zip\Steam\EXTRACT_TO_GAME_FOLDER" -ItemType File
+    - run: cd .\zip\Steam; 7z a -r -tzip ..\..\${{ github.event.repository.name }}_${{ github.event.inputs.version }}_Steam.zip .\*
+    - run: cd .\zip\Gamepass; 7z a -r -tzip ..\..\${{ github.event.repository.name }}_${{ github.event.inputs.version }}_Xbox.zip .\*
     
     - uses: ncipollo/release-action@v1
       with:
-        artifacts: "${{ github.event.repository.name }}_${{ github.event.inputs.version }}.zip"
+        artifacts: "${{ github.event.repository.name }}_${{ github.event.inputs.version }}_Steam.zip, ${{ github.event.repository.name }}_${{ github.event.inputs.version }}_Xbox.zip"
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: ${{ github.event.inputs.version }}
         name: "${{ github.event.inputs.version }}"
