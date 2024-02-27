@@ -9,6 +9,7 @@ HMODULE baseModule = GetModuleHandle(NULL);
 
 // Logger and config setup
 inipp::Ini<char> ini;
+std::shared_ptr<spdlog::logger> logger;
 string sFixName = "P3RFix";
 string sFixVer = "1.1.5";
 string sLogFile = "P3RFix.log";
@@ -111,13 +112,33 @@ void* RenTexPostLoad_Hooked(uint8_t* thisptr)
 
 void Logging()
 {
+    // Get game name and exe path
+    WCHAR exePath[_MAX_PATH] = { 0 };
+    GetModuleFileNameW(baseModule, exePath, MAX_PATH);
+    sExePath = exePath;
+    sExeName = sExePath.filename().string();
+    sExePath = sExePath.remove_filename();
+
     // spdlog initialisation
     {
         try
         {
-            auto logger = spdlog::basic_logger_mt(sFixName.c_str(), sLogFile, true);
+            logger = spdlog::basic_logger_st(sFixName.c_str(), sExePath.string() + sLogFile, true);
             spdlog::set_default_logger(logger);
 
+            spdlog::flush_on(spdlog::level::debug);
+            spdlog::info("----------");
+            spdlog::info("{} v{} loaded.", sFixName.c_str(), sFixVer.c_str());
+            spdlog::info("----------");
+            spdlog::info("Path to logfile: {}", sExePath.string() + sLogFile);
+            spdlog::info("----------");
+
+            // Log module details
+            spdlog::info("Module Name: {0:s}", sExeName.c_str());
+            spdlog::info("Module Path: {0:s}", sExePath.string());
+            spdlog::info("Module Address: 0x{0:x}", (uintptr_t)baseModule);
+            spdlog::info("Module Timestamp: {0:d}", Memory::ModuleTimestamp(baseModule));
+            spdlog::info("----------");
         }
         catch (const spdlog::spdlog_ex& ex)
         {
@@ -127,69 +148,25 @@ void Logging()
             std::cout << "Log initialisation failed: " << ex.what() << std::endl;
         }
     }
-
-    spdlog::flush_on(spdlog::level::debug);
-    spdlog::info("{} v{} loaded.", sFixName.c_str(), sFixVer.c_str());
-    spdlog::info("----------");
-
-    // Get game name and exe path
-    WCHAR exePath[_MAX_PATH] = { 0 };
-    GetModuleFileNameW(baseModule, exePath, MAX_PATH);
-    sExePath = exePath;
-    sExeName = sExePath.filename().string();
-
-    // Log module details
-    spdlog::info("Module Name: {0:s}", sExeName.c_str());
-    spdlog::info("Module Path: {0:s}", sExePath.string().c_str());
-    spdlog::info("Module Address: 0x{0:x}", (uintptr_t)baseModule);
-    spdlog::info("Module Timesstamp: {0:d}", Memory::ModuleTimestamp(baseModule));
-    spdlog::info("----------");
 }
 
 void ReadConfig()
 {
     // Initialise config
-    std::ifstream iniFile(sConfigFile);
+    std::ifstream iniFile(sExePath.string() + sConfigFile);
     if (!iniFile)
     {
-        spdlog::error("Failed to load config file. Trying alternate paths...");
-
-        // WinGDK
-        if (sExePath.string().find("WinGDK") != string::npos)
-        {
-            spdlog::info("WinGDK: WinGDK build detected.");
-            std::ifstream iniFile("./P3R/Binaries/WinGDK/" + sConfigFile);
-            if (!iniFile)
-            {
-                spdlog::critical("WinGDK: Config file missing! Make sure {} is present in the game folder.", sConfigFile);
-            }
-            else
-            {
-                ini.parse(iniFile);
-                spdlog::info("WinGDK: Config file loaded successfully.");
-            }
-        }
-     
-        // Win64
-        if (sExePath.string().find("Win64") != string::npos)
-        {
-            spdlog::info("Win64: Win64 build detected.");
-            std::ifstream iniFile("./P3R/Binaries/Win64/" + sConfigFile);
-            if (!iniFile)
-            {
-                spdlog::critical("Win64: Config file missing! Make sure {} is present in the game folder.", sConfigFile);
-            }
-            else
-            {
-                ini.parse(iniFile);
-                spdlog::info("Win64: Config file loaded successfully.");
-            }
-        }
+        AllocConsole();
+        FILE* dummy;
+        freopen_s(&dummy, "CONOUT$", "w", stdout);
+        std::cout << "" << sFixName.c_str() << " v" << sFixVer.c_str() << " loaded." << std::endl;
+        std::cout << "ERROR: Could not locate config file." << std::endl;
+        std::cout << "ERROR: Make sure " << sConfigFile.c_str() << " is located in " << sExePath.string().c_str() << std::endl;
     }
     else
     {
+        spdlog::info("Path to config file: {}", sExePath.string() + sConfigFile);
         ini.parse(iniFile);
-        spdlog::info("Config file loaded successfully.");
     }
 
     // Read ini file
