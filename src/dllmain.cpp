@@ -55,6 +55,7 @@ int iRenTexNo = 0;
 int iHasPassedIntro = 0;
 float fRenTexResMulti = 1.0f;
 BYTE iWindowFocusStatus = 0;
+LPCWSTR sWindowClassName = L"UnrealWindow";
 
 SafetyHookInline RenTexPostLoad{};
 void* RenTexPostLoad_Hooked(uint8_t* thisptr)
@@ -109,6 +110,18 @@ void* RenTexPostLoad_Hooked(uint8_t* thisptr)
     // Run original function
     return RenTexPostLoad.stdcall<void*>(thisptr);
 }
+
+HWND hWnd;
+WNDPROC OldWndProc;
+LRESULT __stdcall NewWndProc(HWND window, UINT message_type, WPARAM w_param, LPARAM l_param) {
+    if (message_type == WM_ACTIVATEAPP && w_param == FALSE) {
+        return 0;
+    }
+    else if (message_type == WM_KILLFOCUS) {
+        return 0;
+    }
+    return CallWindowProc(OldWndProc, window, message_type, w_param, l_param);
+};
 
 void Logging()
 {
@@ -690,30 +703,32 @@ void Framerate()
     }
 }
 
-void Miscellaneous()
+void WindowFocus()
 {
-    // Window focus
-    uint8_t* WindowFocusScanResult = Memory::PatternScan(baseModule, "83 ?? ?? ?? 00 48 ?? ?? ?? 48 ?? ?? 0F ?? ?? FF ?? 38 ?? 00 00");
-    if (WindowFocusScanResult)
+    if (!bPauseOnFocusLoss)
     {
-        spdlog::info("Window Focus: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)WindowFocusScanResult - (uintptr_t)baseModule);
+        int i = 0;
+        while (i < 30 && !IsWindow(hWnd))
+        {
+            // Wait 1 sec then try again
+            Sleep(1000);
+            i++;
+            hWnd = FindWindowW(sWindowClassName, nullptr);
+        }
 
-        static SafetyHookMid WindowFocusMidHook{};
-        WindowFocusMidHook = safetyhook::create_mid(WindowFocusScanResult + 0xF,
-            [](SafetyHookContext& ctx)
-            {
-                if (!bPauseOnFocusLoss)
-                {
-                    ctx.rdx |= 1;
-                }
-                iWindowFocusStatus = ctx.rdx & 0xFF;
-            });
-
-    }
-    else if (!WindowFocusScanResult)
-    {
-        spdlog::error("Window Focus: Pattern scan failed.");
-    }
+        // If 30 seconds have passed and we still dont have the handle, give up
+        if (i == 30)
+        {
+            spdlog::error("Window Focus: Failed to find window handle.");
+            return;
+        }
+        else
+        {
+            // Set new wnd proc
+            OldWndProc = (WNDPROC)SetWindowLongPtr(hWnd, GWLP_WNDPROC, (LONG_PTR)NewWndProc);
+            spdlog::info("Window Focus: Set NewWndProc.");
+        }
+    } 
 }
 
 DWORD __stdcall Main(void*)
@@ -728,7 +743,7 @@ DWORD __stdcall Main(void*)
     Fades();
     GraphicalTweaks();
     Framerate();
-    Miscellaneous();
+    WindowFocus();
     return true;
 }
 
