@@ -54,6 +54,7 @@ int iFadeStatus = 0; // Initialise as not fading.
 int iRenTexNo = 0;
 int iHasPassedIntro = 0;
 float fRenTexResMulti = 1.0f;
+int iSkipLoopCount = 0;
 BYTE iWindowFocusStatus = 0;
 LPCWSTR sWindowClassName = L"UnrealWindow";
 
@@ -296,7 +297,7 @@ void IntroSkip()
 
         // Skip network
         uint8_t* NetworkSkipScanResult = Memory::PatternScan(baseModule, "48 ?? ?? ?? 48 8B ?? 8B ?? 3C 85 ??");
-        uint8_t* NetworkSkipDialogScanResult = Memory::PatternScan(baseModule, "E8 ?? ?? ?? ?? 84 ?? 0F ?? ?? ?? ?? 00 83 ?? ?? 04 C7 ?? ?? 03 00 00 00");
+        uint8_t* NetworkSkipDialogScanResult = Memory::PatternScan(baseModule, "BB 09 00 00 00 66 ?? ?? ?? 48 ?? ?? ?? ?? ?? 00 48 ?? ?? FF ?? ?? ?? ?? ?? 84 ?? 0F 84 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 ?? ??");
         if (NetworkSkipScanResult && NetworkSkipDialogScanResult)
         {
             spdlog::info("Network Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)NetworkSkipScanResult - (uintptr_t)baseModule);
@@ -311,16 +312,19 @@ void IntroSkip()
                 });
 
             spdlog::info("Network Skip: Dialog: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)NetworkSkipDialogScanResult - (uintptr_t)baseModule);
-
             // Skip network functions confirmation dialog
             static SafetyHookMid NetworkSkipDialogMidHook{};
-            NetworkSkipDialogMidHook = safetyhook::create_mid(NetworkSkipDialogScanResult + 0x5,
+            NetworkSkipDialogMidHook = safetyhook::create_mid(NetworkSkipDialogScanResult + 0x9,
                 [](SafetyHookContext& ctx)
                 {
-                    if (iHasPassedIntro == 0)
+                    if (ctx.rsi + 0x3C)
                     {
-                        ctx.rax = (BYTE)1;
+                        if (iSkipLoopCount < 3)
+                        {
+                            *reinterpret_cast<BYTE*>(ctx.rsi + 0x3C) = 13;
+                        }
                     }
+                    iSkipLoopCount++;
                 });
 
             spdlog::info("Network Skip: Skipped over network dialog.");
@@ -369,7 +373,6 @@ void IntroSkip()
                         // Set last byte
                         ctx.rax |= (BYTE)iSkipLogos;
                     }
-                    iHasPassedIntro = 1;
                 });
            
 
@@ -726,7 +729,7 @@ void WindowFocus()
         {
             // Set new wnd proc
             OldWndProc = (WNDPROC)SetWindowLongPtr(hWnd, GWLP_WNDPROC, (LONG_PTR)NewWndProc);
-            spdlog::info("Window Focus: Set NewWndProc.");
+            spdlog::info("Window Focus: Set new WndProc.");
         }
     } 
 }
