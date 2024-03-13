@@ -51,7 +51,7 @@ This list will contain bugs which may or may not be fixed.
 
 - Some screen fades/transitions may not span the screen at non-16:9 resolutions.
 - If you skip intro to the load save menu, then back out, you will softlock the game.
-- Disabling pause on focus loss may cause major issues. ([#35](https://github.com/Lyall/P3RFix/issues/35))
+- Disabling pause on focus loss while using m/kbd can cause issues with mouse capture. Enter a menu first to release the cursor. ([#35](https://github.com/Lyall/P3RFix/issues/35))
 
 ## Screenshots
 
