@@ -298,20 +298,12 @@ void IntroSkip()
         }
 
         // Skip network
-        uint8_t* NetworkSkipScanResult = Memory::PatternScan(baseModule, "48 ?? ?? ?? 48 8B ?? 8B ?? 3C 85 ??");
+        uint8_t* NetworkSkipScanResult = Memory::PatternScan(baseModule, "48 ?? ?? ?? C6 ?? ?? 00 48 ?? ?? ?? C6 ?? ?? 01 B0 01 C3");
         uint8_t* NetworkSkipDialogScanResult = Memory::PatternScan(baseModule, "BB 09 00 00 00 66 ?? ?? ?? 48 ?? ?? ?? ?? ?? 00 48 ?? ?? FF ?? ?? ?? ?? ?? 84 ?? 0F 84 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 ?? ??");
         if (NetworkSkipScanResult && NetworkSkipDialogScanResult)
         {
             spdlog::info("Network Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)NetworkSkipScanResult - (uintptr_t)baseModule);
-            
-            // Enable network functions
-            static SafetyHookMid NetworkSkipMidHook{};
-            NetworkSkipMidHook = safetyhook::create_mid(NetworkSkipScanResult,
-                [](SafetyHookContext& ctx)
-                {
-                    *reinterpret_cast<int*>(ctx.rcx + 0x40) = 1;
-                    *reinterpret_cast<int*>(ctx.rcx + 0x38) = 1;
-                });
+            Memory::PatchBytes((uintptr_t)NetworkSkipScanResult + 0x7, "\x01", 1);
 
             spdlog::info("Network Skip: Dialog: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)NetworkSkipDialogScanResult - (uintptr_t)baseModule);
             // Skip network functions confirmation dialog
