@@ -1,0 +1,33 @@
+{
+  "ModId": "p3rpc.p3rfix",
+  "ModName": "P3RFix",
+  "ModAuthor": "Lyatt",
+  "ModVersion": "<REPLACED_VERSION_IN_CI>",
+  "ModDescription": "An \u0027Essentials\u0027 mod for P3R",
+  "ModDll": "",
+  "ModIcon": "",
+  "ModR2RManagedDll32": "",
+  "ModR2RManagedDll64": "",
+  "ModNativeDll32": "",
+  "ModNativeDll64": "P3RFix.asi",
+  "Tags": [],
+  "CanUnload": null,
+  "HasExports": null,
+  "IsLibrary": false,
+  "ReleaseMetadataFileName": "p3rpc.p3rfix.ReleaseMetadata.json",
+  "PluginData": {
+    "GitHubRelease": {
+      "UserName": "Lyall",
+      "RepositoryName": "P3RFix",
+      "UseReleaseTag": true,
+      "AssetFileName": "P3RFix_Reloaded-II.zip"
+    }
+  },
+  "IsUniversalMod": false,
+  "ModDependencies": [],
+  "OptionalDependencies": [],
+  "SupportedAppId": [
+    "p3r.exe"
+  ],
+  "ProjectUrl": "https://github.com/Lyall/P3RFix"
+}
