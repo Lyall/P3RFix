@@ -22,22 +22,20 @@ This is a fix that adds custom resolutions, ultrawide support and more to Person
 - Open up the game properties in Steam and add `WINEDLLOVERRIDES="dsound=n,b" %command%` to the launch options.
 
 <details>
-<summary>If you want to use Reloaded II mods alongside P3RFix</summary>
+<summary>Installing P3RFix as a Reloaded II Mod</summary>
   
 *This applies to both Windows and Steam Deck/Linux*
-
-Note: Reloaded II **might not work** if you use the **Game Pass/MS Store version of P3R** (see [this page](https://gamebanana.com/tuts/17165) if you want help with that) so it's recommended to only follow these steps if you are using the Steam version. 
 
 Before starting, make sure to **delete any P3RFix files** inside of the game's files **if you have already have used this fix** previously (*P3RFix.ini*, *P3RFix.asi*, *dsound.ini* and *dsound.dll*)
 
 To make sure P3RFix loads alongside any Reloaded II mods you are using, follow these steps:
 
-- Set up Reloaded II and enable any mods you want as per the instructions on [GameBanana](https://gamebanana.com/tuts/17156).
-- In Reloaded II go to *Edit Application*, *Advanced Tools & Options*, *Deploy ASI Loader*.
-![asiloader_reloaded](https://github.com/Lyall/P3RFix/assets/695941/79ad9641-ee10-48b0-a04f-ecc72908ad83)
-- Once this is done, open the game's binary folder (e.g. "**steamapps\common\P3R\P3R\Binaries\Win64**" for Steam).
-- You should see a *scripts* folder which Reloaded II created when deploying the ASI Loader.
-- Move *P3RFix.asi* into this folder.
+- Install the P3RFix Reloaded-II package.
+    - ![pulse-browser_9bf87yUHiU](https://github.com/Lyall/P3RFix/assets/6697380/9a0b6bdf-ebda-45e2-a292-7858107c3435)
+
+- Drag and drop `P3RFix_Reloaded-II.zip` onto the Reloaded-II window. (Alternatively: [Manual Install](https://reloaded-project.github.io/Reloaded-II/QuickStart/))
+
+- Enable it in your `Reloaded-II` mod list.
 - You should now be able to start the game and see both P3RFix and Reloaded II mods working.
 
 </details>

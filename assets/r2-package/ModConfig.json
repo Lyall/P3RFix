@@ -3,7 +3,7 @@
   "ModName": "P3RFix",
   "ModAuthor": "Lyatt",
   "ModVersion": "<REPLACED_VERSION_IN_CI>",
-  "ModDescription": "An \u0027Essentials\u0027 mod for P3R",
+  "ModDescription": "An \u0027Essentials\u0027 mod for P3R. Edit `P3RFix.ini` in Mod Folder to configure settings.",
   "ModDll": "",
   "ModIcon": "",
   "ModR2RManagedDll32": "",
