@@ -6,6 +6,7 @@
 #include <safetyhook.hpp>
 
 HMODULE baseModule = GetModuleHandle(NULL);
+HMODULE thisModule;
 
 // Logger and config setup
 inipp::Ini<char> ini;
@@ -16,6 +17,7 @@ string sLogFile = "P3RFix.log";
 string sConfigFile = "P3RFix.ini";
 string sExeName;
 filesystem::path sExePath;
+filesystem::path sThisModulePath;
 std::pair DesktopDimensions = { 0,0 };
 
 // Ini Variables
@@ -128,6 +130,12 @@ LRESULT __stdcall NewWndProc(HWND window, UINT message_type, WPARAM w_param, LPA
 
 void Logging()
 {
+    // Get this module path
+    WCHAR thisModulePath[_MAX_PATH] = { 0 };
+    GetModuleFileNameW(thisModule, thisModulePath, MAX_PATH);
+    sThisModulePath = thisModulePath;
+    sThisModulePath = sThisModulePath.remove_filename();
+
     // Get game name and exe path
     WCHAR exePath[_MAX_PATH] = { 0 };
     GetModuleFileNameW(baseModule, exePath, MAX_PATH);
@@ -139,14 +147,14 @@ void Logging()
     {
         try
         {
-            logger = spdlog::basic_logger_st(sFixName.c_str(), sExePath.string() + sLogFile, true);
+            logger = spdlog::basic_logger_st(sFixName.c_str(), sThisModulePath.string() + sLogFile, true);
             spdlog::set_default_logger(logger);
 
             spdlog::flush_on(spdlog::level::debug);
             spdlog::info("----------");
             spdlog::info("{} v{} loaded.", sFixName.c_str(), sFixVer.c_str());
             spdlog::info("----------");
-            spdlog::info("Path to logfile: {}", sExePath.string() + sLogFile);
+            spdlog::info("Path to logfile: {}", sThisModulePath.string() + sLogFile);
             spdlog::info("----------");
 
             // Log module details
@@ -169,7 +177,7 @@ void Logging()
 void ReadConfig()
 {
     // Initialise config
-    std::ifstream iniFile(sExePath.string() + sConfigFile);
+    std::ifstream iniFile(sThisModulePath.string() + sConfigFile);
     if (!iniFile)
     {
         AllocConsole();
@@ -177,11 +185,11 @@ void ReadConfig()
         freopen_s(&dummy, "CONOUT$", "w", stdout);
         std::cout << "" << sFixName.c_str() << " v" << sFixVer.c_str() << " loaded." << std::endl;
         std::cout << "ERROR: Could not locate config file." << std::endl;
-        std::cout << "ERROR: Make sure " << sConfigFile.c_str() << " is located in " << sExePath.string().c_str() << std::endl;
+        std::cout << "ERROR: Make sure " << sConfigFile.c_str() << " is located in " << sThisModulePath.string().c_str() << std::endl;
     }
     else
     {
-        spdlog::info("Path to config file: {}", sExePath.string() + sConfigFile);
+        spdlog::info("Path to config file: {}", sThisModulePath.string() + sConfigFile);
         ini.parse(iniFile);
     }
 
@@ -753,6 +761,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     {
     case DLL_PROCESS_ATTACH:
     {
+        thisModule = hModule;
         HANDLE mainHandle = CreateThread(NULL, 0, Main, 0, NULL, 0);
         if (mainHandle)
         {

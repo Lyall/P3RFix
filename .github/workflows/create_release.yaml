@@ -6,7 +6,11 @@ on:
       version:
         description: 'Release version number'
         required: true
-        
+
+defaults:
+  run:
+    shell: pwsh
+
 jobs:
   build:
     runs-on: windows-latest
@@ -28,20 +32,65 @@ jobs:
         repository: "ThirteenAG/Ultimate-ASI-Loader"
         latest: true
         fileName: "Ultimate-ASI-Loader_x64.zip"
-    - run: unzip Ultimate-ASI-Loader_x64.zip -d .\; echo [GlobalSets]`nDontLoadFromDllMain=0 > .\dsound.ini; C:\msys64\usr\bin\wget.exe -O .\UltimateASILoader_LICENSE.md https://raw.githubusercontent.com/ThirteenAG/Ultimate-ASI-Loader/master/license
-    - run: mkdir .\zip\Gamepass\P3R\Binaries\WinGDK; mkdir .\zip\Steam\P3R\Binaries\Win64
+
+    - name: Prepare Ultimate ASI Loader
+      run: |
+        unzip Ultimate-ASI-Loader_x64.zip -d .\
+        C:\msys64\usr\bin\wget.exe -O .\UltimateASILoader_LICENSE.md https://raw.githubusercontent.com/ThirteenAG/Ultimate-ASI-Loader/master/license
+        
+    - name: Create Directory Structure
+      run: |
+        mkdir .\zip\Gamepass\P3R\Binaries\WinGDK
+        mkdir .\zip\Steam\P3R\Binaries\Win64
+        mkdir .\zip\Reloaded-II
+
     # Xbox
-    - run: cp ${{ github.event.repository.name }}.asi .\zip\Gamepass\P3R\Binaries\WinGDK\; cp ${{ github.event.repository.name }}.ini .\zip\Gamepass\P3R\Binaries\WinGDK\
-    - run: cp dsound.ini .\zip\Gamepass\P3R\Binaries\WinGDK\; cp dinput8.dll .\zip\Gamepass\P3R\Binaries\WinGDK\dsound.dll; cp UltimateASILoader_LICENSE.md .\zip\Gamepass\P3R\Binaries\WinGDK\; New-Item -Path ".\zip\Gamepass\EXTRACT_TO_GAME_FOLDER" -ItemType File
-    - run: cd .\zip\Gamepass; 7z a -r -tzip ..\..\${{ github.event.repository.name }}_${{ github.event.inputs.version }}_Xbox.zip .\*
+    - name: Prepare Xbox Files
+      run: |
+        cp ${{ github.event.repository.name }}.asi .\zip\Gamepass\P3R\Binaries\WinGDK\
+        cp ${{ github.event.repository.name }}.ini .\zip\Gamepass\P3R\Binaries\WinGDK\
+        cp dinput8.dll .\zip\Gamepass\P3R\Binaries\WinGDK\dsound.dll
+        cp UltimateASILoader_LICENSE.md .\zip\Gamepass\P3R\Binaries\WinGDK\
+        New-Item -Path ".\zip\Gamepass\EXTRACT_TO_GAME_FOLDER" -ItemType File
+        
+    - name: Create Xbox Zip
+      run: |
+        cd .\zip\Gamepass
+        7z a -r -tzip ..\..\${{ github.event.repository.name }}_${{ github.event.inputs.version }}_Xbox.zip .\*
+
     # Steam
-    - run: cp ${{ github.event.repository.name }}.asi .\zip\Steam\P3R\Binaries\Win64\; cp ${{ github.event.repository.name }}.ini .\zip\Steam\P3R\Binaries\Win64\
-    - run: cp dsound.ini .\zip\Steam\P3R\Binaries\Win64\; cp dinput8.dll .\zip\Steam\P3R\Binaries\Win64\dsound.dll; cp UltimateASILoader_LICENSE.md .\zip\Steam\P3R\Binaries\Win64\; New-Item -Path ".\zip\Steam\EXTRACT_TO_GAME_FOLDER" -ItemType File
-    - run: cd .\zip\Steam; 7z a -r -tzip ..\..\${{ github.event.repository.name }}_${{ github.event.inputs.version }}_Steam.zip .\*
-    
+    - name: Prepare Steam Files
+      run: |
+        cp ${{ github.event.repository.name }}.asi .\zip\Steam\P3R\Binaries\Win64\
+        cp ${{ github.event.repository.name }}.ini .\zip\Steam\P3R\Binaries\Win64\
+        cp dinput8.dll .\zip\Steam\P3R\Binaries\Win64\dsound.dll
+        cp UltimateASILoader_LICENSE.md .\zip\Steam\P3R\Binaries\Win64\
+        New-Item -Path ".\zip\Steam\EXTRACT_TO_GAME_FOLDER" -ItemType File
+        
+    - name: Create Steam Zip
+      run: |
+        cd .\zip\Steam
+        7z a -r -tzip ..\..\${{ github.event.repository.name }}_${{ github.event.inputs.version }}_Steam.zip .\*
+
+    # Reloaded-II
+    - name: Prepare Reloaded-II Files
+      run: |
+        cp ${{ github.event.repository.name }}.asi .\zip\Reloaded-II\
+        cp ${{ github.event.repository.name }}.ini .\zip\Reloaded-II\
+        cp assets\r2-package\ModConfig.json .\zip\Reloaded-II\
+
+        $pathToJson = ".\zip\Reloaded-II\ModConfig.json"
+        $version = "${{ github.event.inputs.version }}".TrimStart('v') # Remove 'v' prefix from version
+        (Get-Content $pathToJson -Raw) -replace '<REPLACED_VERSION_IN_CI>', $version | Set-Content $pathToJson
+
+    - name: Create Reloaded-II Zip
+      run: |
+        cd .\zip\Reloaded-II
+        7z a -r -tzip ..\..\${{ github.event.repository.name }}_Reloaded-II.zip .\*
+          
     - uses: ncipollo/release-action@v1
       with:
-        artifacts: "${{ github.event.repository.name }}_${{ github.event.inputs.version }}_Steam.zip, ${{ github.event.repository.name }}_${{ github.event.inputs.version }}_Xbox.zip"
+        artifacts: "${{ github.event.repository.name }}_${{ github.event.inputs.version }}_Steam.zip, ${{ github.event.repository.name }}_${{ github.event.inputs.version }}_Xbox.zip, ${{ github.event.repository.name }}_Reloaded-II.zip"
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: ${{ github.event.inputs.version }}
         name: "${{ github.event.inputs.version }}"
