@@ -1,7 +1,7 @@
 {
   "ModId": "p3rpc.p3rfix",
   "ModName": "P3RFix",
-  "ModAuthor": "Lyatt",
+  "ModAuthor": "Lyall",
   "ModVersion": "<REPLACED_VERSION_IN_CI>",
   "ModDescription": "An \u0027Essentials\u0027 mod for P3R. Edit `P3RFix.ini` in Mod Folder to configure settings.",
   "ModDll": "",
