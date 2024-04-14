@@ -38,6 +38,8 @@ bool bScreenPercentage;
 float fScreenPercentage = 100.0f;
 bool bRenTexResMulti;
 float fRenTexResUserMulti;
+bool bMouseFix;
+bool bIgnoreGamepad;
 
 // Aspect ratio + HUD stuff
 float fPi = (float)3.141592653;
@@ -61,6 +63,9 @@ int iRTCapX = 1920;
 int iRTCapY = 1080;
 BYTE iWindowFocusStatus = 0;
 LPCWSTR sWindowClassName = L"UnrealWindow";
+float fRawMouseX = 0.0f;
+float fRawMouseY = 0.0f;
+bool bLastValidInputWasFromMouse = false;
 
 SafetyHookInline RenTexPostLoad{};
 void* RenTexPostLoad_Hooked(uint8_t* thisptr)
@@ -211,6 +216,8 @@ void ReadConfig()
     inipp::get_value(ini.sections["Render Texture Resolution"], "Multiplier", fRenTexResUserMulti);
     inipp::get_value(ini.sections["FPS Cap"], "AdjustFPSCap", bAdjustFPSCap);
     inipp::get_value(ini.sections["FPS Cap"], "Framerate", fFramerateCap);
+    inipp::get_value(ini.sections["Mouse Fix"], "Enabled", bMouseFix);
+    inipp::get_value(ini.sections["Mouse Fix"], "IgnoreGamepad", bIgnoreGamepad);
 
     // Log config parse
     spdlog::info("Config Parse: iInjectionDelay: {}ms", iInjectionDelay);
@@ -736,6 +743,120 @@ void WindowFocus()
     } 
 }
 
+void MouseFix()
+{
+    if (bMouseFix)
+    {
+        // These *are* technically separate fixes, but doing only one of them leads to wacky results with the camera movement
+        uint8_t* StealRawMouseScanResult = Memory::PatternScan(baseModule, "F3 ?? 0F 59 ?? F3 ?? 0F 59 ?? 0F 57 ?? F3 0F 58 ?? F3 0F 51 ?? 0F 2F ?? 73 ??");
+        uint8_t* UnclampInputDataScanResult = Memory::PatternScan(baseModule, "?? 8D ?? ?? ?? F3 ?? 0F 59 ?? ?? 8B ?? F3 0F 59 ?? F3 ?? 0F 11 ?? ?? ?? F3 0F 11 ?? ?? ?? ?? 8B ?? FF ?? ?? ?? ?? ??");
+        uint8_t* RemovePitchSmoothingScanResult = Memory::PatternScan(baseModule, "?? 8B ?? F3 ?? 0F 59 ?? E8 ?? ?? ?? ?? ?? 8B ?? ?? 8B ?? FF ?? ?? ?? ?? ??");
+        uint8_t* RemoveYawSmoothingScanResult = Memory::PatternScan(baseModule, "?? 8B ?? F3 ?? 0F 59 ?? E8 ?? ?? ?? ?? F3 ?? 0F 59 ?? ?? 8B ?? ?? 8B ?? 0F 28 ??");
+        if (StealRawMouseScanResult && UnclampInputDataScanResult && RemovePitchSmoothingScanResult && RemoveYawSmoothingScanResult)
+        {
+            if (bIgnoreGamepad)
+            {
+                // This disables the mouse fix when using a controller because controller camera is perfectly fine
+                uint8_t* DetectGamepadInputScanResult = Memory::PatternScan(baseModule, "F3 ?? 0F 10 ?? ?? ?? ?? ?? F3 0F 10 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? ?? 8B ?? ?? 85 ?? 0F 84 ?? ?? ?? ?? ?? 8B ?? ?? 3B ?? ?? ?? ?? ?? 7D ??");
+                if (DetectGamepadInputScanResult)
+                {
+                    spdlog::info("Gamepad Detection: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)DetectGamepadInputScanResult - (uintptr_t)baseModule);
+                    static SafetyHookMid DetectGamepadInputHook{};
+                    DetectGamepadInputHook = safetyhook::create_mid(DetectGamepadInputScanResult,
+                        [](SafetyHookContext& ctx)
+                        {
+                            bLastValidInputWasFromMouse = false;
+                        });
+                }
+                else
+                {
+                    spdlog::warn("Gamepad Detection: Hook location not found. Gamepad input will be treated like mouse input!");
+                }
+            }
+        
+        
+            // Part 1: Bypass the clamping (and maybe other stuff?) done to the actual mouse input values
+            spdlog::info("Raw Mouse Input Hook: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)StealRawMouseScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid StealRawMouseHook{};
+            StealRawMouseHook = safetyhook::create_mid(StealRawMouseScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    // This hook only gets called when there's no controller input, but also gets called when there's no input at all
+                    if (ctx.xmm10.f32[0] != 0.0f && ctx.xmm10.f32[0] != -0.0f || ctx.xmm8.f32[0] != 0.0f && ctx.xmm8.f32[0] != -0.0f) //floats are wack
+                    {
+                        bLastValidInputWasFromMouse = true;
+                    }
+                    
+                    // These numbers seem to be before the mouse movement range gets clamped to +-2ish
+                    // But also seem to be after mouse sensitivity is applied for some reason? Works for me.
+                    fRawMouseX = ctx.xmm10.f32[0];
+                    fRawMouseY = ctx.xmm8.f32[0];
+                });
+            spdlog::info("Input Replacement Hook: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)UnclampInputDataScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid UnclampInputDataHook{};
+            UnclampInputDataHook = safetyhook::create_mid(UnclampInputDataScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    // Called from input handling, sets the Input struct on the FldCamera
+                    // If our input isn't from a controller, we want to use the unclamped values we captured earlier in camera calculations
+                    // With the way this is set up, I *think* this is actually useless (because we ignore these values later anyway)
+                    // But i'm doing this just in case they're needed somewhere else I haven't looked at (and need to be accurate)
+                    if (bLastValidInputWasFromMouse)
+                    {
+                        ctx.xmm10.f32[0] = fRawMouseX;
+                        ctx.xmm7.f32[0] = fRawMouseY;
+                    }
+                });
+
+            // Part 2: Bypass the camera smoothing calculations when processing player input
+            // I purposely only replace these 2 calls to the original camera calculation to preserve features like
+            // holding left and right turning the camera or the camera moving back to neutral on slopes sometimes(?)
+            // when there's no input
+            spdlog::info("Remove Pitch SmoothCam Hook: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RemovePitchSmoothingScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid RemovePitchSmoothingHook;
+            RemovePitchSmoothingHook = safetyhook::create_mid(RemovePitchSmoothingScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    if (bLastValidInputWasFromMouse)
+                    {
+                        // Structure that stores camera behavior parameters.
+                        // Values in order: (Speed, Accel, Decel, Press, Release, CurrentSpeed, CurrentAccel)
+                        // No, I don't really know what Press and Release are, they seemed to be something to do modifying acceleration over time
+                        // CurrentSpeed and CurrentAccel are the speed that the camera is supposed to move at this frame
+                        float* fPitchParams = reinterpret_cast<float*>(ctx.rcx); 
+
+                        // XMM6 is the speed about to be fed to the actual camera move (returned from the original calculation)
+                        ctx.xmm6.f32[0] = fRawMouseY * -fPitchParams[0];
+
+                        // Zeroing these out because later frames act on them and move the camera further (doing a smooth deceleration)
+                        fPitchParams[5] = 0.0f;
+                        fPitchParams[6] = 0.0f;
+                    }
+                });
+            spdlog::info("Remove Yaw SmoothCam Hook: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RemoveYawSmoothingScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid RemoveYawSmoothingHook;
+            RemoveYawSmoothingHook = safetyhook::create_mid(RemoveYawSmoothingScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    if (bLastValidInputWasFromMouse)
+                    {
+                        // See previous hook for details
+                        float* fYawParams = reinterpret_cast<float*>(ctx.rcx);
+
+                        ctx.xmm6.f32[0] = fRawMouseX * fYawParams[0];
+
+                        fYawParams[5] = 0.0f;
+                        fYawParams[6] = 0.0f;
+                    }
+                });
+        }
+        else
+        {
+            spdlog::error("Mouse Fix: Pattern scan failed");
+        }
+    }
+}
+
 DWORD __stdcall Main(void*)
 {
     Logging();
@@ -749,6 +870,7 @@ DWORD __stdcall Main(void*)
     GraphicalTweaks();
     Framerate();
     WindowFocus();
+    MouseFix();
     return true;
 }
 
