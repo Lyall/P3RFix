@@ -66,6 +66,7 @@ LPCWSTR sWindowClassName = L"UnrealWindow";
 float fRawMouseX = 0.0f;
 float fRawMouseY = 0.0f;
 bool bLastValidInputWasFromMouse = false;
+float* fInputVectorPtr = 0;
 
 SafetyHookInline RenTexPostLoad{};
 void* RenTexPostLoad_Hooked(uint8_t* thisptr)
@@ -750,9 +751,10 @@ void MouseFix()
         // These *are* technically separate fixes, but doing only one of them leads to wacky results with the camera movement
         uint8_t* StealRawMouseScanResult = Memory::PatternScan(baseModule, "F3 ?? 0F 59 ?? F3 ?? 0F 59 ?? 0F 57 ?? F3 0F 58 ?? F3 0F 51 ?? 0F 2F ?? 73 ??");
         uint8_t* UnclampInputDataScanResult = Memory::PatternScan(baseModule, "?? 8D ?? ?? ?? F3 ?? 0F 59 ?? ?? 8B ?? F3 0F 59 ?? F3 ?? 0F 11 ?? ?? ?? F3 0F 11 ?? ?? ?? ?? 8B ?? FF ?? ?? ?? ?? ??");
+        uint8_t* GetSmoothingInputVectorScanResult = Memory::PatternScan(baseModule, "F3 0F 59 ?? F3 0F 59 ?? F3 0F 59 ?? F3 0F 58 ?? 0F 57 ?? F3 0F 58 ?? F3 0F 51 ?? 0F 2F ?? 0F 83 ?? ?? ?? ?? ?? 8B ?? ?? 8B ?? FF");
         uint8_t* RemovePitchSmoothingScanResult = Memory::PatternScan(baseModule, "?? 8B ?? F3 ?? 0F 59 ?? E8 ?? ?? ?? ?? ?? 8B ?? ?? 8B ?? FF ?? ?? ?? ?? ??");
         uint8_t* RemoveYawSmoothingScanResult = Memory::PatternScan(baseModule, "?? 8B ?? F3 ?? 0F 59 ?? E8 ?? ?? ?? ?? F3 ?? 0F 59 ?? ?? 8B ?? ?? 8B ?? 0F 28 ??");
-        if (StealRawMouseScanResult && UnclampInputDataScanResult && RemovePitchSmoothingScanResult && RemoveYawSmoothingScanResult)
+        if (StealRawMouseScanResult && UnclampInputDataScanResult && GetSmoothingInputVectorScanResult && RemovePitchSmoothingScanResult && RemoveYawSmoothingScanResult)
         {
             if (bIgnoreGamepad)
             {
@@ -760,7 +762,7 @@ void MouseFix()
                 uint8_t* DetectGamepadInputScanResult = Memory::PatternScan(baseModule, "F3 ?? 0F 10 ?? ?? ?? ?? ?? F3 0F 10 ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? ?? 8B ?? ?? 85 ?? 0F 84 ?? ?? ?? ?? ?? 8B ?? ?? 3B ?? ?? ?? ?? ?? 7D ??");
                 if (DetectGamepadInputScanResult)
                 {
-                    spdlog::info("Gamepad Detection: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)DetectGamepadInputScanResult - (uintptr_t)baseModule);
+                    spdlog::info("Mouse Fix - Gamepad Detection: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)DetectGamepadInputScanResult - (uintptr_t)baseModule);
                     static SafetyHookMid DetectGamepadInputHook{};
                     DetectGamepadInputHook = safetyhook::create_mid(DetectGamepadInputScanResult,
                         [](SafetyHookContext& ctx)
@@ -770,19 +772,19 @@ void MouseFix()
                 }
                 else
                 {
-                    spdlog::warn("Gamepad Detection: Hook location not found. Gamepad input will be treated like mouse input!");
+                    spdlog::warn("Mouse Fix - Gamepad Detection: Hook location not found. Gamepad input will be treated like mouse input!");
                 }
             }
         
         
             // Part 1: Bypass the clamping (and maybe other stuff?) done to the actual mouse input values
-            spdlog::info("Raw Mouse Input Hook: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)StealRawMouseScanResult - (uintptr_t)baseModule);
+            spdlog::info("Mouse Fix - Raw Mouse Grabber: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)StealRawMouseScanResult - (uintptr_t)baseModule);
             static SafetyHookMid StealRawMouseHook{};
             StealRawMouseHook = safetyhook::create_mid(StealRawMouseScanResult,
                 [](SafetyHookContext& ctx)
                 {
                     // This hook only gets called when there's no controller input, but also gets called when there's no input at all
-                    if (ctx.xmm10.f32[0] != 0.0f && ctx.xmm10.f32[0] != -0.0f || ctx.xmm8.f32[0] != 0.0f && ctx.xmm8.f32[0] != -0.0f) //floats are wack
+                    if (ctx.xmm10.f32[0] != 0.0f || ctx.xmm8.f32[0] != 0.0f)
                     {
                         bLastValidInputWasFromMouse = true;
                     }
@@ -792,7 +794,7 @@ void MouseFix()
                     fRawMouseX = ctx.xmm10.f32[0];
                     fRawMouseY = ctx.xmm8.f32[0];
                 });
-            spdlog::info("Input Replacement Hook: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)UnclampInputDataScanResult - (uintptr_t)baseModule);
+            spdlog::info("Mouse Fix - Input Vector Replacement: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)UnclampInputDataScanResult - (uintptr_t)baseModule);
             static SafetyHookMid UnclampInputDataHook{};
             UnclampInputDataHook = safetyhook::create_mid(UnclampInputDataScanResult,
                 [](SafetyHookContext& ctx)
@@ -801,6 +803,7 @@ void MouseFix()
                     // If our input isn't from a controller, we want to use the unclamped values we captured earlier in camera calculations
                     // With the way this is set up, I *think* this is actually useless (because we ignore these values later anyway)
                     // But i'm doing this just in case they're needed somewhere else I haven't looked at (and need to be accurate)
+                    // TODO: find where further slight negative acceleration is being applied from
                     if (bLastValidInputWasFromMouse)
                     {
                         ctx.xmm10.f32[0] = fRawMouseX;
@@ -808,11 +811,34 @@ void MouseFix()
                     }
                 });
 
+
             // Part 2: Bypass the camera smoothing calculations when processing player input
+            // This gets the address of the input FVector passed to the camera management function so we can use it for our calculations
+            spdlog::info("Mouse Fix - Input Vector Retrieval: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)GetSmoothingInputVectorScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid GetSmoothingInputVectorHook{};
+            GetSmoothingInputVectorHook = safetyhook::create_mid(GetSmoothingInputVectorScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    fInputVectorPtr = reinterpret_cast<float*>(ctx.rax + 0x25c); //(X,Y,Z)
+
+                    // OK so the input vector provided to the hook (StoredInput) seems to correctly identify stops but also has some
+                    // extra acceleration applied. I'm gonna opt to use the raw value we collected but use the vector
+                    // to check for said stops (so dialog windows don't have spin to win cameras) and hope it works because I do not
+                    // want to decompile more input code
+                    if (fInputVectorPtr[0] == 0.0f && fInputVectorPtr[1] == 0.0f)
+                    {
+                        
+                        fRawMouseX = 0.0f;
+                        fRawMouseY = 0.0f;
+                    }
+
+                    // Also fRawMouseY is inverted where we collected it. I didn't wanna mess up any extra input processing by inverting it there
+                    fRawMouseY = -fRawMouseY;
+                });
             // I purposely only replace these 2 calls to the original camera calculation to preserve features like
             // holding left and right turning the camera or the camera moving back to neutral on slopes sometimes(?)
             // when there's no input
-            spdlog::info("Remove Pitch SmoothCam Hook: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RemovePitchSmoothingScanResult - (uintptr_t)baseModule);
+            spdlog::info("Mouse Fix - Remove Pitch SmoothCam: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RemovePitchSmoothingScanResult - (uintptr_t)baseModule);
             static SafetyHookMid RemovePitchSmoothingHook;
             RemovePitchSmoothingHook = safetyhook::create_mid(RemovePitchSmoothingScanResult,
                 [](SafetyHookContext& ctx)
@@ -825,15 +851,14 @@ void MouseFix()
                         // CurrentSpeed and CurrentAccel are the speed that the camera is supposed to move at this frame
                         float* fPitchParams = reinterpret_cast<float*>(ctx.rcx); 
 
-                        // XMM6 is the speed about to be fed to the actual camera move (returned from the original calculation)
-                        ctx.xmm6.f32[0] = fRawMouseY * -fPitchParams[0];
+                        ctx.xmm6.f32[0] = fRawMouseY * fPitchParams[0]; //XMM6 is the speed about to be fed to the actual camera move (returned from the original calculation)
 
                         // Zeroing these out because later frames act on them and move the camera further (doing a smooth deceleration)
                         fPitchParams[5] = 0.0f;
                         fPitchParams[6] = 0.0f;
                     }
                 });
-            spdlog::info("Remove Yaw SmoothCam Hook: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RemoveYawSmoothingScanResult - (uintptr_t)baseModule);
+            spdlog::info("Mouse Fix - Remove Yaw SmoothCam: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RemoveYawSmoothingScanResult - (uintptr_t)baseModule);
             static SafetyHookMid RemoveYawSmoothingHook;
             RemoveYawSmoothingHook = safetyhook::create_mid(RemoveYawSmoothingScanResult,
                 [](SafetyHookContext& ctx)
