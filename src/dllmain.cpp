@@ -38,6 +38,10 @@ bool bScreenPercentage;
 float fScreenPercentage = 100.0f;
 bool bRenTexResMulti;
 float fRenTexResUserMulti;
+bool bMouseFix;
+bool bIgnoreGamepad;
+float fMouseMultiplierX = 1.0f;
+float fMouseMultiplierY = 1.0f;
 
 // Aspect ratio + HUD stuff
 float fPi = (float)3.141592653;
@@ -61,6 +65,11 @@ int iRTCapX = 1920;
 int iRTCapY = 1080;
 BYTE iWindowFocusStatus = 0;
 LPCWSTR sWindowClassName = L"UnrealWindow";
+float fRawMouseX = 0.0f;
+float fRawMouseY = 0.0f;
+bool bLastValidInputWasFromMouse = false;
+bool bCameraShouldMoveHasRunThisFrame = false;
+float* fInputVectorPtr = 0;
 
 SafetyHookInline RenTexPostLoad{};
 void* RenTexPostLoad_Hooked(uint8_t* thisptr)
@@ -211,6 +220,10 @@ void ReadConfig()
     inipp::get_value(ini.sections["Render Texture Resolution"], "Multiplier", fRenTexResUserMulti);
     inipp::get_value(ini.sections["FPS Cap"], "AdjustFPSCap", bAdjustFPSCap);
     inipp::get_value(ini.sections["FPS Cap"], "Framerate", fFramerateCap);
+    inipp::get_value(ini.sections["Mouse Fix"], "Enabled", bMouseFix);
+    inipp::get_value(ini.sections["Mouse Fix"], "IgnoreGamepad", bIgnoreGamepad);
+    inipp::get_value(ini.sections["Mouse Fix"], "MouseMultiplierX", fMouseMultiplierX);
+    inipp::get_value(ini.sections["Mouse Fix"], "MouseMultiplierY", fMouseMultiplierY);
 
     // Log config parse
     spdlog::info("Config Parse: iInjectionDelay: {}ms", iInjectionDelay);
@@ -246,6 +259,10 @@ void ReadConfig()
     }
     spdlog::info("Config Parse: bAdjustFPSCap: {}", bAdjustFPSCap);
     spdlog::info("Config Parse: fFramerateCap: {}", fFramerateCap);
+    spdlog::info("Config Parse: bMouseFix: {}", bMouseFix);
+    spdlog::info("Config Parse: bIgnoreGamepad: {}", bIgnoreGamepad);
+    spdlog::info("Config Parse: fMouseMultiplierX: {}", fMouseMultiplierX);
+    spdlog::info("Config Parse: fMouseMultiplierY: {}", fMouseMultiplierY);
     spdlog::info("----------");
 
     // Calculate aspect ratio / use desktop res instead
@@ -736,6 +753,186 @@ void WindowFocus()
     } 
 }
 
+static SafetyHookInline RegisterRawInputDevicesHook{};
+BOOL __stdcall RegisterRawInputDevices_Injected(PCRAWINPUTDEVICE pRawInputDevices, UINT uiNumDevices, UINT cbSize) {
+    // RawInputDevices pointer is const so we copy it into our new sneaky array
+    RAWINPUTDEVICE* pTamperedRawInputDevices = new RAWINPUTDEVICE[uiNumDevices];
+    memcpy(pTamperedRawInputDevices, pRawInputDevices, uiNumDevices * cbSize);
+
+    for (int i = 0; i < uiNumDevices; i++) {
+        // If we unregister the mouse, no we didn't :)
+        // usUsagePage and usUsage are specific to mouse inputs (Related to HID documentation)
+        // dwFlags least significant bit is whether device(s) are to be unregistered
+        if (pTamperedRawInputDevices[i].usUsagePage == 0x1 && pTamperedRawInputDevices[i].usUsage == 0x2 && pTamperedRawInputDevices[i].dwFlags & 0b1)
+        {
+            spdlog::info("Mouse Fix: Tampering with mouse unregister!");
+            pTamperedRawInputDevices[i].dwFlags &= ~0b1;
+        }
+    }
+
+    auto output = RegisterRawInputDevicesHook.call<BOOL>(pTamperedRawInputDevices, uiNumDevices, cbSize); //Do original call, but don't unregister anything
+    delete[] pTamperedRawInputDevices; //Clean up the sneaky
+    return output;
+}
+static SafetyHookInline PeekMessageWHook{};
+UINT __stdcall PeekMessageW_Injected(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) {
+    // Alrighty boys, we need to basically write our own input handling so buckle up
+    auto output = PeekMessageWHook.call<UINT>(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+    if (output && wRemoveMsg & 0b1) {
+        // Only read (valid) messages on consumption so we don't accidentally double-process anything
+        // Game seems to process raw mouse input despite unregistering it (thank God) so we don't have to fight it for messages
+        if (lpMsg->message == WM_INPUT) {
+            // We've just received an input message.
+            UINT dwSize = 0;
+            GetRawInputData((HRAWINPUT)lpMsg->lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER)); //Get size of rawinput structure
+
+            LPBYTE lpb = new BYTE[dwSize];
+            if (lpb == NULL)
+                return output; //No Raw input data, abort current message injection
+            
+            if (GetRawInputData((HRAWINPUT)lpMsg->lParam, RID_INPUT, lpb, &dwSize, sizeof(RAWINPUTHEADER)) != dwSize) //Actually retrieve raw input data into lpb
+                spdlog::debug("Win32 API Error: GetRawInputData does not return correct size!"); //Doubt this'll happen but might as well log it
+            
+            RAWINPUT* raw = (RAWINPUT*)lpb;
+            if (raw->header.dwType == RIM_TYPEMOUSE)
+            {
+                // We got the good stuff, mouse input data!
+                if (!raw->data.mouse.usFlags) {
+                    if (raw->data.mouse.lLastX || raw->data.mouse.lLastY) {
+                        bLastValidInputWasFromMouse = true;
+                    }
+                    // These numbers were completely just eyeballed. TODO: if you're bored you can find more "accurate" numbers
+                    fRawMouseX += raw->data.mouse.lLastX / 1200.0f;
+                    fRawMouseY += raw->data.mouse.lLastY / 1200.0f;
+                }
+            }
+            delete[] lpb;
+        }
+    }
+    return output;
+}
+void MouseFix()
+{
+    if (bMouseFix)
+    {
+        // These *are* technically separate fixes, but doing only one of them leads to wacky results with the camera movement
+        uint8_t* CheckIfCameraShouldMoveScanResult = Memory::PatternScan(baseModule, "?? 8D ?? ?? ?? F3 ?? 0F 59 ?? ?? 8B ?? F3 0F 59 ?? F3 ?? 0F 11 ?? ?? ?? F3 0F 11 ?? ?? ?? ?? 8B ?? FF ?? ?? ?? ?? ??");
+        uint8_t* DefaultCameraInputSpyScanResult = Memory::PatternScan(baseModule, "0F 83 ?? ?? ?? ?? ?? 8B ?? ?? 8B ?? FF ?? ?? ?? ?? ?? F3 0F 10 ?? ?? F3 0F 10 ?? F3 0F 10");
+        uint8_t* RemovePitchSmoothingScanResult = Memory::PatternScan(baseModule, "F3 0F 58 ?? E8 ?? ?? ?? ?? F3 0F 10 ?? ?? ?? ?? ?? ?? 8B ?? 0F 2F");
+        uint8_t* RemoveYawSmoothingScanResult = Memory::PatternScan(baseModule, "?? 8B ?? ?? 8B ?? 0F 28 ?? FF ?? ?? ?? ?? ?? ?? 89 ?? ?? ?? ?? ?? E9");
+        if (CheckIfCameraShouldMoveScanResult && DefaultCameraInputSpyScanResult && RemovePitchSmoothingScanResult && RemoveYawSmoothingScanResult)
+        {
+            // Old gamepad detection broke once raw input events were enabled. Presumably Unreal started treating mouse inputs
+            // properly and thus it did the same processing as with a gamepad.
+
+            // Part 1 v2: Scrap the game's mouse input handling entirely and just make our own from the Windows raw input API
+            spdlog::info("Mouse Fix - Win32 RegisterRawInputDevices Hook: Address is {:x}", (uintptr_t)RegisterRawInputDevices);
+            RegisterRawInputDevicesHook = safetyhook::create_inline(RegisterRawInputDevices, RegisterRawInputDevices_Injected); //Prevent game from disabling raw input. No I don't know why it does this
+            // Unreal seems to use PeekMessageW to get events from windows and nothing else. Works for me
+            // I don't want to accidentally consume messages (thus preventing the game getting them) so we can intercept here
+            // With this we can spy on all messages (including raw input). The game still processes raw input events even though they're usually not enabled
+            spdlog::info("Mouse Fix - Win32 PeekMessageW Hook: Address is {:x}", (uintptr_t)PeekMessageW);
+            PeekMessageWHook = safetyhook::create_inline(PeekMessageW, PeekMessageW_Injected);
+
+            spdlog::info("Mouse Fix - Dialogue Detection: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)CheckIfCameraShouldMoveScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid CheckIfCameraShouldMoveHook{};
+            CheckIfCameraShouldMoveHook = safetyhook::create_mid(CheckIfCameraShouldMoveScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    // So it turns out one of my old hooks conveniently is only called when the camera should move?
+                    // Horrendously untested but whatever it solves my immediate problem
+                    if (bCameraShouldMoveHasRunThisFrame) {
+                        // Failsafe check. This being true means our mouse fix didn't run last frame for some reason
+                        // To avoid wacky buildups of raw mouse values we'll reset them here
+                        fRawMouseX = 0.0f;
+                        fRawMouseY = 0.0f;
+                    }
+                    bCameraShouldMoveHasRunThisFrame = true;
+                });
+
+
+            // Part 2: Bypass the camera smoothing calculations when processing player input
+            spdlog::info("Mouse Fix - Default Camera Input Spy: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)DefaultCameraInputSpyScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid DefaultCameraInputSpyHook{};
+            DefaultCameraInputSpyHook = safetyhook::create_mid(DefaultCameraInputSpyScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    // This is a convenient spot to read the default game input for the camera
+                    fInputVectorPtr = reinterpret_cast<float*>(ctx.rax + 0x25c); //(X,Y,Z)
+
+                    // New gamepad detection. Relatively simple: if game says we move but mouse no move, then something else must be controlling the game
+                    if ((fInputVectorPtr[0] != 0.0f || fInputVectorPtr[1] != 0.0f) && (fRawMouseX == 0.0f && fRawMouseY == 0.0f) && bIgnoreGamepad)
+                    {
+                        // Input vector is non-zero but mouse input is zero. Gamepad detected!
+                        bLastValidInputWasFromMouse = false;
+                    }
+
+                    // Deadzone while strafing fix
+                    // Normally this only jumps when the game input vector's magnitude is > 0.01, which doesn't account for precise mouse movements
+                    // Normal check is still carried out before this hook though
+                    if (fRawMouseX != 0.0f || fRawMouseY != 0.0f) {
+                        // Next instruction is a JNC
+                        ctx.rflags = ctx.rflags & ~0b1; //Set Carry to 0, ensuring we jump (doing player input instead of strafe camera)
+                    }
+                });
+
+            // I purposely only replace these 2 calls to the original camera calculation to preserve features like
+            // holding left and right turning the camera or the camera moving back to neutral on slopes sometimes(?)
+            // when there's no input
+            spdlog::info("Mouse Fix - Remove Pitch SmoothCam: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RemovePitchSmoothingScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid RemovePitchSmoothingHook;
+            RemovePitchSmoothingHook = safetyhook::create_mid(RemovePitchSmoothingScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    // Documentation time:
+                    // As far as I know: XMM6 is the pitch value to be added. XMM12 is P3R's Camera Speed multiplier
+                    // XMM10 is the deltaTime for this frame but the rawMouse value is already cumulative throughout the frame so you don't need to use it
+                    if (bLastValidInputWasFromMouse && bCameraShouldMoveHasRunThisFrame)
+                    {
+                        // Structure that stores camera behavior parameters.
+                        // Values in order: (Speed, Accel, Decel, Press, Release, CurrentSpeed, CurrentAccel)
+                        // No, I don't really know what Press and Release are, they seemed to be something to do modifying acceleration over time
+                        // CurrentSpeed and CurrentAccel are the speed that the camera is supposed to move at this frame
+                        float* fPitchParams = reinterpret_cast<float*>(ctx.rbx + 0x104); 
+
+                        ctx.xmm6.f32[0] = -fRawMouseY * fPitchParams[0] * ctx.xmm12.f32[0] * fMouseMultiplierY;
+
+                        // Zeroing these out because later frames act on them and move the camera further (doing a smooth deceleration)
+                        fPitchParams[5] = 0.0f;
+                        fPitchParams[6] = 0.0f;
+                    }
+                    fRawMouseY = 0.0f; //Reset raw mouse for next frame
+                });
+            spdlog::info("Mouse Fix - Remove Yaw SmoothCam: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RemoveYawSmoothingScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid RemoveYawSmoothingHook;
+            RemoveYawSmoothingHook = safetyhook::create_mid(RemoveYawSmoothingScanResult,
+                // Coincidentally all the registers are the same for this hook as in the above one.
+                // XMM0 is the default game speed calculation if you want that for some reason. It was overwritten in the last hook but here it's available
+                [](SafetyHookContext& ctx)
+                {
+                    if (bLastValidInputWasFromMouse && bCameraShouldMoveHasRunThisFrame)
+                    {
+                        // See previous hook for details
+                        float* fYawParams = reinterpret_cast<float*>(ctx.rbx + 0xe8);
+
+                        ctx.xmm6.f32[0] = fRawMouseX * fYawParams[0] * ctx.xmm12.f32[0] * fMouseMultiplierX;
+
+                        fYawParams[5] = 0.0f;
+                        fYawParams[6] = 0.0f;
+                    }
+                    fRawMouseX = 0.0f;
+
+                    // Frame (as far as we care) has ended. Reset dialogue check state
+                    bCameraShouldMoveHasRunThisFrame = false;
+                });
+        }
+        else
+        {
+            spdlog::error("Mouse Fix: Pattern scan failed");
+        }
+    }
+}
+
 DWORD __stdcall Main(void*)
 {
     Logging();
@@ -749,6 +946,7 @@ DWORD __stdcall Main(void*)
     GraphicalTweaks();
     Framerate();
     WindowFocus();
+    MouseFix();
     return true;
 }
 
