@@ -37,6 +37,7 @@ bool bAdjustFPSCap;
 float fFramerateCap;
 bool bPauseOnFocusLoss;
 bool bEnableConsole;
+string sConsoleHotkey;
 bool bScreenPercentage;
 float fScreenPercentage = 100.0f;
 bool bRenTexResMulti;
@@ -206,6 +207,7 @@ void ReadConfig()
     }
 
     // Read ini file
+    ini.strip_trailing_comments();
     inipp::get_value(ini.sections["Custom Resolution"], "Enabled", bCustomResolution);
     inipp::get_value(ini.sections["Custom Resolution"], "Width", iCustomResX);
     inipp::get_value(ini.sections["Custom Resolution"], "Height", iCustomResY);
@@ -214,6 +216,7 @@ void ReadConfig()
     inipp::get_value(ini.sections["Pause on Focus Loss"], "Enabled", bPauseOnFocusLoss);
     inipp::get_value(ini.sections["Uncap 60FPS Menus"], "Enabled", bUncapMenuFPS);
     inipp::get_value(ini.sections["Enable Console"], "Enabled", bEnableConsole);
+    inipp::get_value(ini.sections["Enable Console"], "Hotkey", sConsoleHotkey);
     inipp::get_value(ini.sections["Fix HUD"], "Enabled", bHUDFix);
     inipp::get_value(ini.sections["Fix Aspect Ratio"], "Enabled", bAspectFix);
     inipp::get_value(ini.sections["Fix FOV"], "Enabled", bFOVFix);
@@ -242,6 +245,7 @@ void ReadConfig()
     spdlog::info("Config Parse: bUncapMenuFPS: {}", bUncapMenuFPS);
     spdlog::info("Config Parse: bPauseOnFocusLoss: {}", bPauseOnFocusLoss);
     spdlog::info("Config Parse: bEnableConsole: {}", bEnableConsole);
+    spdlog::info("Config Parse: sConsoleHotkey: {}", sConsoleHotkey);
     spdlog::info("Config Parse: bHUDFix: {}", bHUDFix);
     spdlog::info("Config Parse: bAspectFix: {}", bAspectFix);
     spdlog::info("Config Parse: bFOVFix: {}", bFOVFix);
@@ -455,12 +459,21 @@ void EnableConsole()
                 return;
             }
 
+            if (SDK::UInputSettings::GetDefaultObj() && SDK::UInputSettings::GetDefaultObj()->ConsoleKeys.Num() != 0)
+            {
+                SDK::UInputSettings::GetDefaultObj()->ConsoleKeys[0].KeyName = SDK::UKismetStringLibrary::Conv_StringToName(Util::StringToWString(sConsoleHotkey).c_str());
+            }
+            else
+            {
+                spdlog::warn("Construct Console: Failed to bind console key.");
+            }
+
             // Log console key
             if (SDK::UInputSettings::GetInputSettings()->ConsoleKeys && SDK::UInputSettings::GetInputSettings()->ConsoleKeys.Num() > 0) {
                 spdlog::info("Construct Console: Console enabled - access it using key: {}.", SDK::UInputSettings::GetInputSettings()->ConsoleKeys[0].KeyName.ToString());
             }
             else {
-                spdlog::error("Console enabled but no console key is bound.\nAdd this to %LOCALAPPDATA%\\P3R\\Saved\\Config\\WindowsNoEditor\\Input.ini -\n[/Script/Engine.InputSettings]\nConsoleKeys = Tilde");
+                spdlog::error("Construct Console: Console enabled but no console key is bound.\nAdd this to %LOCALAPPDATA%\\P3R\\Saved\\Config\\WindowsNoEditor\\Input.ini -\n[/Script/Engine.InputSettings]\nConsoleKeys = Tilde");
             }
         }
     }
@@ -588,6 +601,9 @@ void Fades()
 {
     if (bHUDFix)
     {
+        // MoviePlayActorBase::Start()
+        // 48 83 ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 85 ?? 74 ?? B2 01
+
         // Get fade status
         uint8_t* FadeStatusScanResult = Memory::PatternScan(baseModule, "40 ?? 48 ?? ?? ?? 4C ?? ?? ?? ?? ?? 00 0F ?? ?? 0F ?? ?? ?? ?? 0F ?? ?? 48 ?? ??");
         if (FadeStatusScanResult)
