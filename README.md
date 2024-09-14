@@ -9,6 +9,7 @@ This is a fix that adds custom resolutions, ultrawide support and more to Person
 - Ultrawide/narrow aspect ratio support.
 - Correct FOV at any aspect ratio.
 - Configurable intro skip.
+- Enable developer console.
 - Render scale override.
 - Control over pausing when alt+tabbed.
 - The ability to increase/decrease resolution of render texture targets (i.e menus, persona model previews).
