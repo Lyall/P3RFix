@@ -19,12 +19,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\SMTVFix\src\SDK\Engine_functions.cpp" />
     <ClCompile Include="external\safetyhook\safetyhook.cpp" />
     <ClCompile Include="external\safetyhook\Zydis.c" />
     <ClCompile Include="src\dllmain.cpp" />
     <ClCompile Include="src\SDK\Basic.cpp" />
     <ClCompile Include="src\SDK\CoreUObject_functions.cpp" />
+    <ClCompile Include="src\SDK\Engine_functions.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="external\safetyhook\safetyhook.hpp" />
