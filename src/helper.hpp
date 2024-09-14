@@ -100,4 +100,12 @@ namespace Util
 
         return {};
     }
+
+    std::wstring StringToWString(std::string Str) {
+        std::vector<wchar_t> buf(Str.size());
+        std::use_facet<std::ctype<wchar_t>>(std::locale()).widen(Str.data(),
+            Str.data() + Str.size(),
+            buf.data());
+        return std::wstring(buf.data(), buf.size());
+    }
 }
