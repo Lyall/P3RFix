@@ -5,6 +5,9 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <safetyhook.hpp>
 
+// UE4 SDK
+#include "SDK/Engine_classes.hpp"
+
 HMODULE baseModule = GetModuleHandle(NULL);
 HMODULE thisModule;
 
@@ -12,7 +15,7 @@ HMODULE thisModule;
 inipp::Ini<char> ini;
 std::shared_ptr<spdlog::logger> logger;
 string sFixName = "P3RFix";
-string sFixVer = "1.2.1";
+string sFixVer = "1.2.2";
 string sLogFile = "P3RFix.log";
 string sConfigFile = "P3RFix.ini";
 string sExeName;
@@ -21,7 +24,6 @@ filesystem::path sThisModulePath;
 std::pair DesktopDimensions = { 0,0 };
 
 // Ini Variables
-int iInjectionDelay;
 bool bCustomResolution;
 int iCustomResX = -1;
 int iCustomResY = -1;
@@ -34,6 +36,7 @@ bool bUncapMenuFPS;
 bool bAdjustFPSCap;
 float fFramerateCap;
 bool bPauseOnFocusLoss;
+bool bEnableConsole;
 bool bScreenPercentage;
 float fScreenPercentage = 100.0f;
 bool bRenTexResMulti;
@@ -203,7 +206,6 @@ void ReadConfig()
     }
 
     // Read ini file
-    inipp::get_value(ini.sections["P3RFix Parameters"], "InjectionDelay", iInjectionDelay);
     inipp::get_value(ini.sections["Custom Resolution"], "Enabled", bCustomResolution);
     inipp::get_value(ini.sections["Custom Resolution"], "Width", iCustomResX);
     inipp::get_value(ini.sections["Custom Resolution"], "Height", iCustomResY);
@@ -211,6 +213,7 @@ void ReadConfig()
     inipp::get_value(ini.sections["Intro Skip"], "SkipTo", iSkipLogos);
     inipp::get_value(ini.sections["Pause on Focus Loss"], "Enabled", bPauseOnFocusLoss);
     inipp::get_value(ini.sections["Uncap 60FPS Menus"], "Enabled", bUncapMenuFPS);
+    inipp::get_value(ini.sections["Enable Console"], "Enabled", bEnableConsole);
     inipp::get_value(ini.sections["Fix HUD"], "Enabled", bHUDFix);
     inipp::get_value(ini.sections["Fix Aspect Ratio"], "Enabled", bAspectFix);
     inipp::get_value(ini.sections["Fix FOV"], "Enabled", bFOVFix);
@@ -226,19 +229,19 @@ void ReadConfig()
     inipp::get_value(ini.sections["Mouse Fix"], "MouseMultiplierY", fMouseMultiplierY);
 
     // Log config parse
-    spdlog::info("Config Parse: iInjectionDelay: {}ms", iInjectionDelay);
     spdlog::info("Config Parse: bCustomResolution: {}", bCustomResolution);
     spdlog::info("Config Parse: iCustomResX: {}", iCustomResX);
     spdlog::info("Config Parse: iCustomResY: {}", iCustomResY);
     spdlog::info("Config Parse: bSkipLogos: {}", bSkipLogos);
     spdlog::info("Config Parse: iSkipLogos: {}", iSkipLogos);
-    if (iSkipLogos < 1 || iSkipLogos > 3)
+    if (iSkipLogos < 1 || iSkipLogos > 2)
     {
-        iSkipLogos = std::clamp(iSkipLogos, 1, 3);
+        iSkipLogos = std::clamp(iSkipLogos, 1, 2);
         spdlog::warn("Config Parse: iSkipLogos value invalid, clamped to {}", iSkipLogos);
     }
     spdlog::info("Config Parse: bUncapMenuFPS: {}", bUncapMenuFPS);
     spdlog::info("Config Parse: bPauseOnFocusLoss: {}", bPauseOnFocusLoss);
+    spdlog::info("Config Parse: bEnableConsole: {}", bEnableConsole);
     spdlog::info("Config Parse: bHUDFix: {}", bHUDFix);
     spdlog::info("Config Parse: bAspectFix: {}", bAspectFix);
     spdlog::info("Config Parse: bFOVFix: {}", bFOVFix);
@@ -305,6 +308,43 @@ void ReadConfig()
     spdlog::info("----------");
 }
 
+void UpdateOffsets()
+{
+    // GObjects
+    uint8_t* GObjectsScanResult = Memory::PatternScan(baseModule, "48 8B ?? ?? ?? ?? ?? 48 8B ?? ?? 48 8D ?? ?? EB ?? 33 ?? 8B ?? ?? C1 ??");
+    if (GObjectsScanResult) {
+        spdlog::info("Offsets: GObjects: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)GObjectsScanResult - (uintptr_t)baseModule);
+        uintptr_t GObjectsAddr = Memory::GetAbsolute((uintptr_t)GObjectsScanResult + 0x3);
+        SDK::Offsets::GObjects = (uintptr_t)GObjectsAddr - (uintptr_t)baseModule;
+        spdlog::info("Offsets: GObjects: Offset: {:x}", SDK::Offsets::GObjects);
+    }
+    else if (!GObjectsScanResult) {
+        spdlog::error("Offsets: GObjects: Pattern scan failed.");
+    }
+
+    // AppendString
+    uint8_t* AppendStringScanResult = Memory::PatternScan(baseModule, "48 89 ?? ?? ?? 48 89 ?? ?? ?? 57 48 83 ?? ?? 8B ?? 48 8B ?? 8B ?? 44 0F ?? ?? C1 ?? 10 48 8B ?? 80 3D ?? ?? ?? ?? 00 89 ?? ?? ?? 44 89 ?? ?? ?? 74 ?? 4C 8D ?? ?? ?? ?? ?? EB ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 4C ?? ?? C6 ?? ?? ?? ?? ?? 01 48 8B ?? ?? ?? 48 8B ?? 48 ?? ?? ?? 8D ?? ?? 49 ?? ?? ?? ?? E8 ?? ?? ?? ?? 83 ?? ?? 00");
+    if (AppendStringScanResult) {
+        spdlog::info("Offsets: AppendString: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)AppendStringScanResult - (uintptr_t)baseModule);
+        SDK::Offsets::AppendString = (uintptr_t)AppendStringScanResult - (uintptr_t)baseModule;
+        spdlog::info("Offsets: AppendString: Offset: {:x}", SDK::Offsets::AppendString);
+    }
+    else if (!AppendStringScanResult) {
+        spdlog::error("Offsets: AppendString: Pattern scan failed.");
+    }
+
+    // ProcessEvent
+    uint8_t* ProcessEventScanResult = Memory::PatternScan(baseModule, "40 ?? 56 57 41 ?? 41 ?? 41 ?? 41 ?? 48 81 ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 89 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? ?? ?? ?? 8B ?? ?? 45 33 ??");
+    if (ProcessEventScanResult) {
+        spdlog::info("Offsets: ProcessEvent: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ProcessEventScanResult - (uintptr_t)baseModule);
+        SDK::Offsets::ProcessEvent = (uintptr_t)ProcessEventScanResult - (uintptr_t)baseModule;
+        spdlog::info("Offsets: ProcessEvent: Offset: {:x}", SDK::Offsets::ProcessEvent);
+    }
+    else if (!ProcessEventScanResult) {
+        spdlog::error("Offsets: ProcessEvent: Pattern scan failed.");
+    }
+}
+
 void IntroSkip()
 {
     if (bSkipLogos)
@@ -314,43 +354,12 @@ void IntroSkip()
         if (CautionSkipScanResult)
         {
             spdlog::info("Caution Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)CautionSkipScanResult - (uintptr_t)baseModule);
-            Memory::PatchBytes((uintptr_t)CautionSkipScanResult + 0x3, "\xB0\x02", 2);
+            Memory::PatchBytes((uintptr_t)CautionSkipScanResult + 0x3, "\xB0\x03", 2);
             spdlog::info("Caution Skip: Skipped to network dialog.");
         }
         else if (!CautionSkipScanResult)
         {
             spdlog::error("Caution Skip: Pattern scan failed.");
-        }
-
-        // Skip network
-        uint8_t* NetworkSkipScanResult = Memory::PatternScan(baseModule, "48 ?? ?? ?? C6 ?? ?? 00 48 ?? ?? ?? C6 ?? ?? 01 B0 01 C3");
-        uint8_t* NetworkSkipDialogScanResult = Memory::PatternScan(baseModule, "BB 09 00 00 00 66 ?? ?? ?? 48 ?? ?? ?? ?? ?? 00 48 ?? ?? FF ?? ?? ?? ?? ?? 84 ?? 0F 84 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 ?? ??");
-        if (NetworkSkipScanResult && NetworkSkipDialogScanResult)
-        {
-            spdlog::info("Network Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)NetworkSkipScanResult - (uintptr_t)baseModule);
-            Memory::PatchBytes((uintptr_t)NetworkSkipScanResult + 0x7, "\x01", 1);
-
-            spdlog::info("Network Skip: Dialog: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)NetworkSkipDialogScanResult - (uintptr_t)baseModule);
-            // Skip network functions confirmation dialog
-            static SafetyHookMid NetworkSkipDialogMidHook{};
-            NetworkSkipDialogMidHook = safetyhook::create_mid(NetworkSkipDialogScanResult + 0x9,
-                [](SafetyHookContext& ctx)
-                {
-                    if (ctx.rsi + 0x3C)
-                    {
-                        if (iSkipLoopCount < 3)
-                        {
-                            *reinterpret_cast<BYTE*>(ctx.rsi + 0x3C) = 13;
-                        }
-                    }
-                    iSkipLoopCount++;
-                });
-
-            spdlog::info("Network Skip: Skipped over network dialog.");
-        }
-        else if (!NetworkSkipScanResult || NetworkSkipDialogScanResult)
-        {
-            spdlog::error("Network Skip: Pattern scan failed.");
         }
 
         // Skip intro after network option
@@ -362,17 +371,13 @@ void IntroSkip()
 
             switch (iSkipLogos)
             {
-                // Opening Movie
             case 1:
+                // Opening Movie
                 iSkipLogos = 4;
                 break;
-                // Main Menu
             case 2:
+                // Main Menu
                 iSkipLogos = 5;
-                break;
-                // Load Save Menu
-            case 3:
-                iSkipLogos = 8;
                 break;
             }
 
@@ -393,13 +398,70 @@ void IntroSkip()
                         ctx.rax |= (BYTE)iSkipLogos;
                     }
                 });
-           
+
 
             spdlog::info("Intro Skip: Skipped intro to title state {}.", iSkipLogos);
         }
         else if (!IntroSkipScanResult || !OpeningMovieScanResult)
         {
             spdlog::error("Intro Skip: Pattern scan failed.");
+        }
+    }
+}
+
+void EnableConsole()
+{
+    if (bEnableConsole)
+    {
+        if (SDK::Offsets::GObjects && SDK::Offsets::AppendString) {
+            // Get GEngine
+            SDK::UEngine* engine = nullptr;
+
+            int i = 0;
+            while (i < 100) { // 10s
+                engine = SDK::UEngine::GetEngine();
+
+                if (engine) {
+                    if (engine->ConsoleClass && engine->GameViewport) {
+                        break;
+                    }
+                }
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                i++;
+            }
+
+            if (i == 100) {
+                spdlog::error("Construct Console: Failed to find GEngine address after 10 seconds.");
+                return;
+            }
+
+            spdlog::info("Construct Console: GEngine address = {:x}", (uintptr_t)engine);
+
+            // Construct console
+            if (engine->ConsoleClass && engine->GameViewport) {
+                SDK::UObject* NewObject = SDK::UGameplayStatics::SpawnObject(engine->ConsoleClass, engine->GameViewport);
+                if (NewObject) {
+                    engine->GameViewport->ViewportConsole = static_cast<SDK::UConsole*>(NewObject);
+                    spdlog::info("Construct Console: Console object constructed.");
+                }
+                else {
+                    spdlog::error("Construct Console: Failed to construct console object.");
+                    return;
+                }
+            }
+            else {
+                spdlog::error("Construct Console: Failed to construct console object - ConsoleClass or GameViewport is null.");
+                return;
+            }
+
+            // Log console key
+            if (SDK::UInputSettings::GetInputSettings()->ConsoleKeys && SDK::UInputSettings::GetInputSettings()->ConsoleKeys.Num() > 0) {
+                spdlog::info("Construct Console: Console enabled - access it using key: {}.", SDK::UInputSettings::GetInputSettings()->ConsoleKeys[0].KeyName.ToString());
+            }
+            else {
+                spdlog::error("Console enabled but no console key is bound.\nAdd this to %LOCALAPPDATA%\\P3R\\Saved\\Config\\WindowsNoEditor\\Input.ini -\n[/Script/Engine.InputSettings]\nConsoleKeys = Tilde");
+            }
         }
     }
 }
@@ -439,21 +501,19 @@ void AspectFOVFix()
     if (bFOVFix)
     {
         // FOV
-        uint8_t* FOVScanResult = Memory::PatternScan(baseModule, "F3 0F ?? ?? ?? ?? ?? ?? F3 0F ?? ?? ?? 8B ?? ?? ?? ?? ?? 89 ?? ?? 0F ?? ?? ?? ?? ?? ?? 33 ?? ?? 83 ?? ??") + 0x8;
+        uint8_t* FOVScanResult = Memory::PatternScan(baseModule, "F3 0F ?? ?? ?? ?? ?? ?? F3 0F ?? ?? ?? 8B ?? ?? ?? ?? ?? 89 ?? ?? 0F ?? ?? ?? ?? ?? ?? 33 ?? ?? 83 ?? ??");
         if (FOVScanResult)
         {
             spdlog::info("FOV: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)FOVScanResult - (uintptr_t)baseModule);
 
             static SafetyHookMid FOVMidHook{};
-            FOVMidHook = safetyhook::create_mid(FOVScanResult,
+            FOVMidHook = safetyhook::create_mid(FOVScanResult + 0x8,
                 [](SafetyHookContext& ctx)
                 {
-                    float fov = ctx.xmm0.f32[0];
                     if (fNativeAspect < fAspectRatio)
                     {
-                        fov = atanf(tanf(fov * (fPi / 360)) / fNativeAspect * fAspectRatio) * (360 / fPi);
+                        ctx.xmm0.f32[0] = atanf(tanf(ctx.xmm0.f32[0] * (fPi / 360)) / fNativeAspect * fAspectRatio) * (360 / fPi);
                     }
-                    ctx.xmm0.f32[0] = fov;
                 });
         }
         else if (!FOVScanResult)
@@ -473,7 +533,6 @@ void AspectFOVFix()
             AspectRatioMidHook = safetyhook::create_mid(AspectRatioScanResult + 0x6,
                 [](SafetyHookContext& ctx)
                 {
-                    // Don't wanna use an offset so this will have to do
                     ctx.rax = *(uint32_t*)(&fAspectRatio);
                 });
             
@@ -788,7 +847,7 @@ UINT __stdcall PeekMessageW_Injected(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin,
 
             LPBYTE lpb = new BYTE[dwSize];
             if (lpb == NULL)
-                return output; //No Raw input data, abort current message injection
+                return output; // No Raw input data, abort current message injection
             
             if (GetRawInputData((HRAWINPUT)lpMsg->lParam, RID_INPUT, lpb, &dwSize, sizeof(RAWINPUTHEADER)) != dwSize) //Actually retrieve raw input data into lpb
                 spdlog::debug("Win32 API Error: GetRawInputData does not return correct size!"); //Doubt this'll happen but might as well log it
@@ -903,6 +962,7 @@ void MouseFix()
                     }
                     fRawMouseY = 0.0f; //Reset raw mouse for next frame
                 });
+
             spdlog::info("Mouse Fix - Remove Yaw SmoothCam: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RemoveYawSmoothingScanResult - (uintptr_t)baseModule);
             static SafetyHookMid RemoveYawSmoothingHook;
             RemoveYawSmoothingHook = safetyhook::create_mid(RemoveYawSmoothingScanResult,
@@ -937,8 +997,9 @@ DWORD __stdcall Main(void*)
 {
     Logging();
     ReadConfig();
-    Sleep(iInjectionDelay);
+    UpdateOffsets();
     IntroSkip();
+    EnableConsole();
     Resolution();
     AspectFOVFix();
     HUDFix();
