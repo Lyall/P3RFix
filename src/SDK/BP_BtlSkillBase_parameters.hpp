@@ -12,9 +12,9 @@
 
 #include "CoreUObject_structs.hpp"
 #include "Xrd777_structs.hpp"
-#include "Engine_structs.hpp"
 #include "FBtlSkillRequest_structs.hpp"
 #include "FBtlSkillControl_structs.hpp"
+#include "Engine_structs.hpp"
 
 
 namespace SDK::Params

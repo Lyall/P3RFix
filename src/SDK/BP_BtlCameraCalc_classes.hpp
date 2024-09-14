@@ -10,10 +10,10 @@
 
 #include "Basic.hpp"
 
+#include "FBtlCamCalcAddparam_structs.hpp"
 #include "Xrd777_structs.hpp"
 #include "Xrd777_classes.hpp"
 #include "CoreUObject_structs.hpp"
-#include "FBtlCamCalcAddparam_structs.hpp"
 
 
 namespace SDK

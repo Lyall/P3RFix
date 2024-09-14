@@ -10,9 +10,9 @@
 
 #include "Basic.hpp"
 
+#include "FBtlVector3_structs.hpp"
 #include "CoreUObject_structs.hpp"
 #include "Xrd777_structs.hpp"
-#include "FBtlVector3_structs.hpp"
 
 
 namespace SDK::Params

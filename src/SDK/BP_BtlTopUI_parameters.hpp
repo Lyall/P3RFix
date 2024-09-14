@@ -10,11 +10,11 @@
 
 #include "Basic.hpp"
 
+#include "FBtlGuiAnimationParam_structs.hpp"
 #include "Xrd777_structs.hpp"
 #include "CoreUObject_structs.hpp"
 #include "FBtlTopUIParam_structs.hpp"
 #include "Engine_structs.hpp"
-#include "FBtlGuiAnimationParam_structs.hpp"
 
 
 namespace SDK::Params

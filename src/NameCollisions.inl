@@ -9,17 +9,17 @@
 // FORWARD DECLARATIONS
 
 
-namespace LS_Btl_UI_EncountStart { class USequenceDirector_C; }
-
-namespace BP_FldPlayerDUNGEON_0 { class ABP_FldPlayerDUNGEON_C; }
+namespace LS_Btl_UI_Encount { class USequenceDirector_C; }
 
 namespace LS_Btl_UI_ChanceEncount { class USequenceDirector_C; }
 
-namespace LS_Btl_UI_CautionEncount { class USequenceDirector_C; }
-
-namespace LS_Btl_UI_Encount { class USequenceDirector_C; }
-
-namespace LS_BtlResult_Master { class USequenceDirector_C; }
+namespace BP_FldPlayerDUNGEON_0 { class ABP_FldPlayerDUNGEON_C; }
 
 namespace BP_FldPlayerDUNGEON { class ABP_FldPlayerDUNGEON_C; }
+
+namespace LS_Btl_UI_EncountStart { class USequenceDirector_C; }
+
+namespace LS_Btl_UI_CautionEncount { class USequenceDirector_C; }
+
+namespace LS_BtlResult_Master { class USequenceDirector_C; }
 

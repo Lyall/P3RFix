@@ -10,32 +10,37 @@
 
 #include "Basic.hpp"
 
-#include "BP_FldPlayer_classes.hpp"
 #include "Engine_structs.hpp"
+#include "BP_FldPlayer_classes.hpp"
 
 
 namespace SDK
 {
 
 // BlueprintGeneratedClass BP_FldPlayerDUNGEON.BP_FldPlayerDUNGEON_C
-// 0x0070 (0x09C0 - 0x0950)
+// 0x00A0 (0x09F0 - 0x0950)
 class BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C final : public ABP_FldPlayer_C
 {
 public:
 	struct FPointerToUberGraphFrame               UberGraphFrame_BP_FldPlayerDUNGEON_C;              // 0x0950(0x0008)(ZeroConstructor, Transient, DuplicateTransient)
-	class UChildActorComponent*                   SearchArea;                                        // 0x0958(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
-	class UPostProcessComponent*                  PostProcess;                                       // 0x0960(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
-	class UFldPartnerStartPointComp*              FldPartnerStartPointComp2;                         // 0x0968(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
-	class UFldPartnerStartPointComp*              FldPartnerStartPointComp1;                         // 0x0970(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
-	class UFldPartnerStartPointComp*              FldPartnerStartPointComp0;                         // 0x0978(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
-	class UFldPartnerPointComp*                   FldPartnerPointComp5;                              // 0x0980(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
-	class UFldPartnerPointComp*                   FldPartnerPointComp4;                              // 0x0988(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
-	class UFldPartnerPointComp*                   FldPartnerPointComp3;                              // 0x0990(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
-	class UFldPartnerPointComp*                   FldPartnerPointComp2;                              // 0x0998(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
-	class UFldPartnerPointComp*                   FldPartnerPointComp1;                              // 0x09A0(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
-	class UFldPartnerPointComp*                   FldPartnerPointComp;                               // 0x09A8(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
-	class UFldPlayerDungeonComp*                  FldPlayerDungeonComp;                              // 0x09B0(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
-	class UChildActorComponent*                   AttackArea;                                        // 0x09B8(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UStaticMeshComponent*                   SizeCheck;                                         // 0x0958(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UChildActorComponent*                   DashAttackArea;                                    // 0x0960(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UChildActorComponent*                   ObjectAutoDestroyArea;                             // 0x0968(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UChildActorComponent*                   TargetDetectAreaLongRange;                         // 0x0970(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UChildActorComponent*                   AttackAreaLongRange;                               // 0x0978(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UChildActorComponent*                   SearchArea;                                        // 0x0980(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UPostProcessComponent*                  PostProcess;                                       // 0x0988(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UFldPartnerStartPointComp*              FldPartnerStartPointComp2;                         // 0x0990(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UFldPartnerStartPointComp*              FldPartnerStartPointComp1;                         // 0x0998(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UFldPartnerStartPointComp*              FldPartnerStartPointComp0;                         // 0x09A0(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UFldPartnerPointComp*                   FldPartnerPointComp5;                              // 0x09A8(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UFldPartnerPointComp*                   FldPartnerPointComp4;                              // 0x09B0(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UFldPartnerPointComp*                   FldPartnerPointComp3;                              // 0x09B8(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UFldPartnerPointComp*                   FldPartnerPointComp2;                              // 0x09C0(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UFldPartnerPointComp*                   FldPartnerPointComp1;                              // 0x09C8(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UFldPartnerPointComp*                   FldPartnerPointComp;                               // 0x09D0(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UFldPlayerDungeonComp*                  FldPlayerDungeonComp;                              // 0x09D8(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
+	class UChildActorComponent*                   AttackArea;                                        // 0x09E0(0x0008)(BlueprintVisible, ZeroConstructor, InstancedReference, IsPlainOldData, NonTransactional, NoDestructor, HasGetValueTypeHash)
 
 public:
 	void ExecuteUbergraph_BP_FldPlayerDUNGEON(int32 EntryPoint);
@@ -57,21 +62,26 @@ public:
 	}
 };
 static_assert(alignof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C) == 0x000010, "Wrong alignment on BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C");
-static_assert(sizeof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C) == 0x0009C0, "Wrong size on BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C");
+static_assert(sizeof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C) == 0x0009F0, "Wrong size on BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C");
 static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, UberGraphFrame_BP_FldPlayerDUNGEON_C) == 0x000950, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::UberGraphFrame_BP_FldPlayerDUNGEON_C' has a wrong offset!");
-static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, SearchArea) == 0x000958, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::SearchArea' has a wrong offset!");
-static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, PostProcess) == 0x000960, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::PostProcess' has a wrong offset!");
-static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerStartPointComp2) == 0x000968, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerStartPointComp2' has a wrong offset!");
-static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerStartPointComp1) == 0x000970, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerStartPointComp1' has a wrong offset!");
-static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerStartPointComp0) == 0x000978, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerStartPointComp0' has a wrong offset!");
-static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerPointComp5) == 0x000980, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerPointComp5' has a wrong offset!");
-static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerPointComp4) == 0x000988, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerPointComp4' has a wrong offset!");
-static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerPointComp3) == 0x000990, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerPointComp3' has a wrong offset!");
-static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerPointComp2) == 0x000998, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerPointComp2' has a wrong offset!");
-static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerPointComp1) == 0x0009A0, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerPointComp1' has a wrong offset!");
-static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerPointComp) == 0x0009A8, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerPointComp' has a wrong offset!");
-static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPlayerDungeonComp) == 0x0009B0, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPlayerDungeonComp' has a wrong offset!");
-static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, AttackArea) == 0x0009B8, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::AttackArea' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, SizeCheck) == 0x000958, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::SizeCheck' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, DashAttackArea) == 0x000960, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::DashAttackArea' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, ObjectAutoDestroyArea) == 0x000968, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::ObjectAutoDestroyArea' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, TargetDetectAreaLongRange) == 0x000970, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::TargetDetectAreaLongRange' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, AttackAreaLongRange) == 0x000978, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::AttackAreaLongRange' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, SearchArea) == 0x000980, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::SearchArea' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, PostProcess) == 0x000988, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::PostProcess' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerStartPointComp2) == 0x000990, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerStartPointComp2' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerStartPointComp1) == 0x000998, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerStartPointComp1' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerStartPointComp0) == 0x0009A0, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerStartPointComp0' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerPointComp5) == 0x0009A8, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerPointComp5' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerPointComp4) == 0x0009B0, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerPointComp4' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerPointComp3) == 0x0009B8, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerPointComp3' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerPointComp2) == 0x0009C0, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerPointComp2' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerPointComp1) == 0x0009C8, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerPointComp1' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPartnerPointComp) == 0x0009D0, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPartnerPointComp' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, FldPlayerDungeonComp) == 0x0009D8, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::FldPlayerDungeonComp' has a wrong offset!");
+static_assert(offsetof(BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C, AttackArea) == 0x0009E0, "Member 'BP_FldPlayerDUNGEON_0::ABP_FldPlayerDUNGEON_C::AttackArea' has a wrong offset!");
 
 }
 

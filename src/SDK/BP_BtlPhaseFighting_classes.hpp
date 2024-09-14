@@ -11,8 +11,8 @@
 #include "Basic.hpp"
 
 #include "Engine_structs.hpp"
-#include "Xrd777_structs.hpp"
 #include "BP_BtlPhaseBase_classes.hpp"
+#include "Xrd777_structs.hpp"
 
 
 namespace SDK

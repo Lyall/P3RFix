@@ -10,8 +10,8 @@
 
 #include "Basic.hpp"
 
-#include "FBtlTheurgiaSeq_structs.hpp"
 #include "Engine_structs.hpp"
+#include "FBtlTheurgiaSeq_structs.hpp"
 #include "Xrd777_classes.hpp"
 #include "CoreUObject_structs.hpp"
 

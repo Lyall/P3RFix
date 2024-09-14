@@ -24013,7 +24013,7 @@ public:
 public:
 	class UAssetLoader* GetAssetLoader();
 	class UMiniMapIconListTable* GetFldMiniMapIconTable();
-	SDK::EFldType GetFldType();
+	EFldType GetFldType();
 	class UTexture* GetMapParts(int32 Index_0);
 	class UTexture* GetMapTex();
 	class UTexture* GetMapTexture();

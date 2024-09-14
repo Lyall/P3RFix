@@ -10,11 +10,11 @@
 
 #include "Basic.hpp"
 
-#include "FEqualizerSettings_structs.hpp"
 #include "Engine_structs.hpp"
 #include "CoreUObject_structs.hpp"
 #include "Xrd777_structs.hpp"
 #include "Xrd777_classes.hpp"
+#include "FEqualizerSettings_structs.hpp"
 
 
 namespace SDK
