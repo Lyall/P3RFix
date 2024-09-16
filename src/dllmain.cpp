@@ -313,6 +313,46 @@ void ReadConfig()
     spdlog::info("----------");
 }
 
+void RenderTextures()
+{
+    if (bRenTexResMulti)
+    {
+        // Render Texture 2D Resolution
+        uint8_t* RenTex2DScanResult = Memory::PatternScan(baseModule, "8B ?? ?? ?? 00 00 44 ?? ?? ?? ?? ?? ?? 41 ?? ?? 8B ?? ?? ?? 00 00 44 ?? ?? ?? 66 ?? ?? ??");
+        if (RenTex2DScanResult)
+        {
+            RenTexPostLoad = safetyhook::create_inline(reinterpret_cast<void*>(RenTex2DScanResult), RenTexPostLoad_Hooked);
+            spdlog::info("Render Texture 2D Resolution: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RenTex2DScanResult - (uintptr_t)baseModule);
+        }
+        else if (!RenTex2DScanResult)
+        {
+            spdlog::error("Render Texture 2D Resolution: Pattern scan failed.");
+        }
+
+        // RT_Capture
+        uint8_t* RTCaptureScanResult = Memory::PatternScan(baseModule, "C7 ?? ?? ?? ?? 00 80 07 00 00 C7 ?? ?? ?? ?? 00 38 04 00 00 49 ?? ??");
+        if (RTCaptureScanResult)
+        {
+            spdlog::info("RT_Capture: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RTCaptureScanResult - (uintptr_t)baseModule);
+
+            static SafetyHookMid RTCaptureMidHook{};
+            RTCaptureMidHook = safetyhook::create_mid(RTCaptureScanResult + 0x14,
+                [](SafetyHookContext& ctx)
+                {
+                    if (ctx.rax + 0x1FC && ctx.rax + 0x200)
+                    {
+                        *reinterpret_cast<int*>(ctx.rax + 0x1FC) = iRTCapX;
+                        *reinterpret_cast<int*>(ctx.rax + 0x200) = iRTCapY;
+                    }
+                });
+        }
+        else if (!RTCaptureScanResult)
+        {
+            spdlog::error("RT_Capture: Pattern scan failed.");
+        }
+    }
+}
+
 void UpdateOffsets()
 {
     // GObjects
@@ -748,43 +788,6 @@ void GraphicalTweaks()
     {
         spdlog::error("Screen Percentage: Pattern scan failed.");
     }
-
-    if (bRenTexResMulti)
-    {
-        // Render Texture 2D Resolution
-        uint8_t* RenTex2DScanResult = Memory::PatternScan(baseModule, "8B ?? ?? ?? 00 00 44 ?? ?? ?? ?? ?? ?? 41 ?? ?? 8B ?? ?? ?? 00 00 44 ?? ?? ?? 66 ?? ?? ??");
-        if (RenTex2DScanResult)
-        {
-            RenTexPostLoad = safetyhook::create_inline(reinterpret_cast<void*>(RenTex2DScanResult), RenTexPostLoad_Hooked);
-            spdlog::info("Render Texture 2D Resolution: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RenTex2DScanResult - (uintptr_t)baseModule);
-        }
-        else if (!RenTex2DScanResult)
-        {
-            spdlog::error("Render Texture 2D Resolution: Pattern scan failed.");
-        } 
-
-        // RT_Capture
-        uint8_t* RTCaptureScanResult = Memory::PatternScan(baseModule, "C7 ?? ?? ?? ?? 00 80 07 00 00 C7 ?? ?? ?? ?? 00 38 04 00 00 49 ?? ??");
-        if (RTCaptureScanResult)
-        {
-            spdlog::info("RT_Capture: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)RTCaptureScanResult - (uintptr_t)baseModule);
-
-            static SafetyHookMid RTCaptureMidHook{};
-            RTCaptureMidHook = safetyhook::create_mid(RTCaptureScanResult + 0x14,
-                [](SafetyHookContext& ctx)
-                {
-                    if (ctx.rax + 0x1FC && ctx.rax + 0x200)
-                    {
-                        *reinterpret_cast<int*>(ctx.rax + 0x1FC) = iRTCapX;
-                        *reinterpret_cast<int*>(ctx.rax + 0x200) = iRTCapY;
-                    }
-                });
-        }
-        else if (!RTCaptureScanResult)
-        {
-            spdlog::error("RT_Capture: Pattern scan failed.");
-        }
-    } 
 }
 
 void Framerate()
@@ -1041,6 +1044,7 @@ DWORD __stdcall Main(void*)
 {
     Logging();
     ReadConfig();
+    RenderTextures();
     UpdateOffsets();
     IntroSkip();
     EnableConsole();
