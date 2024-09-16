@@ -75,6 +75,8 @@ bool bLastValidInputWasFromMouse = false;
 bool bCameraShouldMoveHasRunThisFrame = false;
 float* fInputVectorPtr = 0;
 bool bIntroSkipHasRun = false;
+int iCurrentResX;
+int iCurrentResY;
 
 SafetyHookInline RenTexPostLoad{};
 void* RenTexPostLoad_Hooked(uint8_t* thisptr)
@@ -141,6 +143,38 @@ LRESULT __stdcall NewWndProc(HWND window, UINT message_type, WPARAM w_param, LPA
     }
     return CallWindowProc(OldWndProc, window, message_type, w_param, l_param);
 };
+
+void CalculateAspectRatio()
+{
+    // Calculate aspect ratio
+    fAspectRatio = (float)iCurrentResX / (float)iCurrentResY;
+    fAspectMultiplier = fAspectRatio / fNativeAspect;
+
+    // HUD variables
+    fHUDWidth = iCurrentResY * fNativeAspect;
+    fHUDHeight = (float)iCurrentResY;
+    fHUDWidthOffset = (float)(iCurrentResX - fHUDWidth) / 2;
+    fHUDHeightOffset = 0;
+    if (fAspectRatio < fNativeAspect) {
+        fHUDWidth = (float)iCurrentResX;
+        fHUDHeight = (float)iCurrentResX / fNativeAspect;
+        fHUDWidthOffset = 0;
+        fHUDHeightOffset = (float)(iCurrentResY - fHUDHeight) / 2;
+    }
+
+    // Log details about current resolution
+    spdlog::info("----------");
+    spdlog::info("Current Resolution: Base Resolution: {}x{}", iCurrentResX, iCurrentResY);
+    spdlog::info("Current Resolution: Screen Percentage: {}", fScreenPercentage);
+    spdlog::info("Current Resolution: Scaled Resolution: {}x{}", iCurrentResX * (fScreenPercentage / 100), iCurrentResY * (fScreenPercentage / 100));
+    spdlog::info("Current Resolution: fAspectRatio: {}", fAspectRatio);
+    spdlog::info("Current Resolution: fAspectMultiplier: {}", fAspectMultiplier);
+    spdlog::info("Current Resolution: fHUDWidth: {}", fHUDWidth);
+    spdlog::info("Current Resolution: fHUDHeight: {}", fHUDHeight);
+    spdlog::info("Current Resolution: fHUDWidthOffset: {}", fHUDWidthOffset);
+    spdlog::info("Current Resolution: fHUDHeightOffset: {}", fHUDHeightOffset);
+    spdlog::info("----------");
+}
 
 void Logging()
 {
@@ -273,44 +307,20 @@ void ReadConfig()
     spdlog::info("Config Parse: fMouseMultiplierY: {}", fMouseMultiplierY);
     spdlog::info("----------");
 
-    // Calculate aspect ratio / use desktop res instead
+    // Get desktop res
     DesktopDimensions = Util::GetPhysicalDesktopDimensions();
-
-    if (iCustomResX > 0 && iCustomResY > 0)
-    {
-        fAspectRatio = (float)iCustomResX / (float)iCustomResY;
-    }
-    else
+    if (bCustomResolution && iCustomResX == 0 && iCustomResY == 0)
     {
         iCustomResX = (int)DesktopDimensions.first;
         iCustomResY = (int)DesktopDimensions.second;
-        fAspectRatio = (float)DesktopDimensions.first / (float)DesktopDimensions.second;
         spdlog::info("Custom Resolution: Desktop Width: {}", iCustomResX);
         spdlog::info("Custom Resolution: Desktop Height: {}", iCustomResY);
     }
-    fAspectMultiplier = fAspectRatio / fNativeAspect;
 
-    // HUD variables
-    fHUDWidth = iCustomResY * fNativeAspect;
-    fHUDHeight = (float)iCustomResY;
-    fHUDWidthOffset = (float)(iCustomResX - fHUDWidth) / 2;
-    fHUDHeightOffset = 0;
-    if (fAspectRatio < fNativeAspect)
-    {
-        fHUDWidth = (float)iCustomResX;
-        fHUDHeight = (float)iCustomResX / fNativeAspect;
-        fHUDWidthOffset = 0;
-        fHUDHeightOffset = (float)(iCustomResY - fHUDHeight) / 2;
-    }
-
-    // Log aspect ratio stuff
-    spdlog::info("Custom Resolution: fAspectRatio: {}", fAspectRatio);
-    spdlog::info("Custom Resolution: fAspectMultiplier: {}", fAspectMultiplier);
-    spdlog::info("Custom Resolution: fHUDWidth: {}", fHUDWidth);
-    spdlog::info("Custom Resolution: fHUDHeight: {}", fHUDHeight);
-    spdlog::info("Custom Resolution: fHUDWidthOffset: {}", fHUDWidthOffset);
-    spdlog::info("Custom Resolution: fHUDHeightOffset: {}", fHUDHeightOffset);
-    spdlog::info("----------");
+    // Calculate aspect ratio
+    iCurrentResX = iCustomResX;
+    iCurrentResY = iCustomResY;
+    CalculateAspectRatio();
 }
 
 void RenderTextures()
@@ -353,40 +363,59 @@ void RenderTextures()
     }
 }
 
-void UpdateOffsets()
+void Resolution()
 {
-    // GObjects
-    uint8_t* GObjectsScanResult = Memory::PatternScan(baseModule, "48 8B ?? ?? ?? ?? ?? 48 8B ?? ?? 48 8D ?? ?? EB ?? 33 ?? 8B ?? ?? C1 ??");
-    if (GObjectsScanResult) {
-        spdlog::info("Offsets: GObjects: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)GObjectsScanResult - (uintptr_t)baseModule);
-        uintptr_t GObjectsAddr = Memory::GetAbsolute((uintptr_t)GObjectsScanResult + 0x3);
-        SDK::Offsets::GObjects = (uintptr_t)GObjectsAddr - (uintptr_t)baseModule;
-        spdlog::info("Offsets: GObjects: Offset: {:x}", SDK::Offsets::GObjects);
-    }
-    else if (!GObjectsScanResult) {
-        spdlog::error("Offsets: GObjects: Pattern scan failed.");
+    if (bCustomResolution)
+    {
+        // Apply custom resolution
+        uint8_t* ApplyResolutionScanResult = Memory::PatternScan(baseModule, "39 ?? ?? ?? ?? 00 75 ?? 48 ?? ?? 48 ?? ?? 20 39 ?? ?? ?? ?? 00 74 ??");
+        if (ApplyResolutionScanResult)
+        {
+            // Need 4 bytes aligned twice
+            static struct Resolution
+            {
+                int Width = iCustomResX;
+                int Height = iCustomResY;
+            } CustomResolution;
+
+            spdlog::info("Custom Resolution: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ApplyResolutionScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid ApplyResolutionMidHook{};
+            ApplyResolutionMidHook = safetyhook::create_mid(ApplyResolutionScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    ctx.rdx = *(uint64_t*)&CustomResolution;
+                });
+        }
+        else if (!ApplyResolutionScanResult)
+        {
+            spdlog::error("Custom Resolution: Pattern scan failed.");
+        }
     }
 
-    // AppendString
-    uint8_t* AppendStringScanResult = Memory::PatternScan(baseModule, "48 89 ?? ?? ?? 48 89 ?? ?? ?? 57 48 83 ?? ?? 8B ?? 48 8B ?? 8B ?? 44 0F ?? ?? C1 ?? 10 48 8B ?? 80 3D ?? ?? ?? ?? 00 89 ?? ?? ?? 44 89 ?? ?? ?? 74 ?? 4C 8D ?? ?? ?? ?? ?? EB ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 4C ?? ?? C6 ?? ?? ?? ?? ?? 01 48 8B ?? ?? ?? 48 8B ?? 48 ?? ?? ?? 8D ?? ?? 49 ?? ?? ?? ?? E8 ?? ?? ?? ?? 83 ?? ?? 00");
-    if (AppendStringScanResult) {
-        spdlog::info("Offsets: AppendString: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)AppendStringScanResult - (uintptr_t)baseModule);
-        SDK::Offsets::AppendString = (uintptr_t)AppendStringScanResult - (uintptr_t)baseModule;
-        spdlog::info("Offsets: AppendString: Offset: {:x}", SDK::Offsets::AppendString);
-    }
-    else if (!AppendStringScanResult) {
-        spdlog::error("Offsets: AppendString: Pattern scan failed.");
-    }
+    // Get current resolution
+    uint8_t* CurrResolutionScanResult = Memory::PatternScan(baseModule, "44 89 ?? ?? ?? ?? ?? 44 89 ?? ?? ?? ?? ?? 44 89 ?? ?? ?? ?? ??  88 ?? ?? ?? ?? ??");
+    if (CurrResolutionScanResult)
+    {
+        spdlog::info("Current Resolution: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)CurrResolutionScanResult - (uintptr_t)baseModule);
+        static SafetyHookMid CurrResolutionMidHook{};
+        CurrResolutionMidHook = safetyhook::create_mid(CurrResolutionScanResult,
+            [](SafetyHookContext& ctx)
+            {
+                int iResX = (int)ctx.r13;
+                int iResY = (int)ctx.r12;
 
-    // ProcessEvent
-    uint8_t* ProcessEventScanResult = Memory::PatternScan(baseModule, "40 ?? 56 57 41 ?? 41 ?? 41 ?? 41 ?? 48 81 ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 89 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? ?? ?? ?? 8B ?? ?? 45 33 ??");
-    if (ProcessEventScanResult) {
-        spdlog::info("Offsets: ProcessEvent: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ProcessEventScanResult - (uintptr_t)baseModule);
-        SDK::Offsets::ProcessEvent = (uintptr_t)ProcessEventScanResult - (uintptr_t)baseModule;
-        spdlog::info("Offsets: ProcessEvent: Offset: {:x}", SDK::Offsets::ProcessEvent);
+                // Log resolution
+                if (iResX != iCurrentResX || iResY != iCurrentResY) {
+                    iCurrentResX = iResX;
+                    iCurrentResY = iResY;
+                    CalculateAspectRatio();
+                }
+
+            });
     }
-    else if (!ProcessEventScanResult) {
-        spdlog::error("Offsets: ProcessEvent: Pattern scan failed.");
+    else if (!CurrResolutionScanResult)
+    {
+        spdlog::error("Current Resolution: Pattern scan failed.");
     }
 }
 
@@ -481,6 +510,43 @@ void IntroSkip()
     }
 }
 
+void UpdateOffsets()
+{
+    // GObjects
+    uint8_t* GObjectsScanResult = Memory::PatternScan(baseModule, "48 8B ?? ?? ?? ?? ?? 48 8B ?? ?? 48 8D ?? ?? EB ?? 33 ?? 8B ?? ?? C1 ??");
+    if (GObjectsScanResult) {
+        spdlog::info("Offsets: GObjects: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)GObjectsScanResult - (uintptr_t)baseModule);
+        uintptr_t GObjectsAddr = Memory::GetAbsolute((uintptr_t)GObjectsScanResult + 0x3);
+        SDK::Offsets::GObjects = (uintptr_t)GObjectsAddr - (uintptr_t)baseModule;
+        spdlog::info("Offsets: GObjects: Offset: {:x}", SDK::Offsets::GObjects);
+    }
+    else if (!GObjectsScanResult) {
+        spdlog::error("Offsets: GObjects: Pattern scan failed.");
+    }
+
+    // AppendString
+    uint8_t* AppendStringScanResult = Memory::PatternScan(baseModule, "48 89 ?? ?? ?? 48 89 ?? ?? ?? 57 48 83 ?? ?? 8B ?? 48 8B ?? 8B ?? 44 0F ?? ?? C1 ?? 10 48 8B ?? 80 3D ?? ?? ?? ?? 00 89 ?? ?? ?? 44 89 ?? ?? ?? 74 ?? 4C 8D ?? ?? ?? ?? ?? EB ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 4C ?? ?? C6 ?? ?? ?? ?? ?? 01 48 8B ?? ?? ?? 48 8B ?? 48 ?? ?? ?? 8D ?? ?? 49 ?? ?? ?? ?? E8 ?? ?? ?? ?? 83 ?? ?? 00");
+    if (AppendStringScanResult) {
+        spdlog::info("Offsets: AppendString: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)AppendStringScanResult - (uintptr_t)baseModule);
+        SDK::Offsets::AppendString = (uintptr_t)AppendStringScanResult - (uintptr_t)baseModule;
+        spdlog::info("Offsets: AppendString: Offset: {:x}", SDK::Offsets::AppendString);
+    }
+    else if (!AppendStringScanResult) {
+        spdlog::error("Offsets: AppendString: Pattern scan failed.");
+    }
+
+    // ProcessEvent
+    uint8_t* ProcessEventScanResult = Memory::PatternScan(baseModule, "40 ?? 56 57 41 ?? 41 ?? 41 ?? 41 ?? 48 81 ?? ?? ?? ?? ?? 48 8D ?? ?? ?? 48 89 ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 33 ?? 48 89 ?? ?? ?? ?? ?? 8B ?? ?? 45 33 ??");
+    if (ProcessEventScanResult) {
+        spdlog::info("Offsets: ProcessEvent: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ProcessEventScanResult - (uintptr_t)baseModule);
+        SDK::Offsets::ProcessEvent = (uintptr_t)ProcessEventScanResult - (uintptr_t)baseModule;
+        spdlog::info("Offsets: ProcessEvent: Offset: {:x}", SDK::Offsets::ProcessEvent);
+    }
+    else if (!ProcessEventScanResult) {
+        spdlog::error("Offsets: ProcessEvent: Pattern scan failed.");
+    }
+}
+
 void EnableConsole()
 {
     if (bEnableConsole)
@@ -543,36 +609,6 @@ void EnableConsole()
             else {
                 spdlog::error("Construct Console: Console enabled but no console key is bound.\nAdd this to %LOCALAPPDATA%\\P3R\\Saved\\Config\\WindowsNoEditor\\Input.ini -\n[/Script/Engine.InputSettings]\nConsoleKeys = Tilde");
             }
-        }
-    }
-}
-
-void Resolution()
-{ 
-    if (bCustomResolution)
-    {
-        // Apply custom resolution.
-        uint8_t* ApplyResolutionScanResult = Memory::PatternScan(baseModule, "39 ?? ?? ?? ?? 00 75 ?? 48 ?? ?? 48 ?? ?? 20 39 ?? ?? ?? ?? 00 74 ??");
-        if (ApplyResolutionScanResult)
-        {
-            // Need 4 bytes aligned twice
-            static struct Resolution
-            {
-                int Width = iCustomResX;
-                int Height = iCustomResY;
-            } CustomResolution;
-
-            spdlog::info("Custom Resolution: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ApplyResolutionScanResult - (uintptr_t)baseModule);
-            static SafetyHookMid ApplyResolutionMidHook{};
-            ApplyResolutionMidHook = safetyhook::create_mid(ApplyResolutionScanResult,
-                [](SafetyHookContext& ctx)
-                {
-                    ctx.rdx = *(uint64_t*)&CustomResolution;
-                });
-        }
-        else if (!ApplyResolutionScanResult)
-        {
-            spdlog::error("Custom Resolution: Pattern scan failed.");
         }
     }
 }
@@ -780,7 +816,11 @@ void GraphicalTweaks()
                 else
                 {
                     // Grab screen percentage value if not applied by user.
-                    fScreenPercentage = *reinterpret_cast<float*>(ctx.rdi + (ctx.rbx * 4));
+                    if (fScreenPercentage != *reinterpret_cast<float*>(ctx.rdi + (ctx.rbx * 4)))
+                    {
+                        fScreenPercentage = *reinterpret_cast<float*>(ctx.rdi + (ctx.rbx * 4));
+                        CalculateAspectRatio();
+                    }
                 }
             });
     }
@@ -1045,10 +1085,10 @@ DWORD __stdcall Main(void*)
     Logging();
     ReadConfig();
     RenderTextures();
-    UpdateOffsets();
-    IntroSkip();
-    EnableConsole();
     Resolution();
+    IntroSkip();
+    UpdateOffsets();
+    EnableConsole();
     AspectFOVFix();
     HUDFix();
     Fades();
