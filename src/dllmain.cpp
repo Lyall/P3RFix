@@ -15,7 +15,7 @@ HMODULE thisModule;
 inipp::Ini<char> ini;
 std::shared_ptr<spdlog::logger> logger;
 string sFixName = "P3RFix";
-string sFixVer = "1.2.2";
+string sFixVer = "1.2.3";
 string sLogFile = "P3RFix.log";
 string sConfigFile = "P3RFix.ini";
 string sExeName;
@@ -74,6 +74,7 @@ float fRawMouseY = 0.0f;
 bool bLastValidInputWasFromMouse = false;
 bool bCameraShouldMoveHasRunThisFrame = false;
 float* fInputVectorPtr = 0;
+bool bIntroSkipHasRun = false;
 
 SafetyHookInline RenTexPostLoad{};
 void* RenTexPostLoad_Hooked(uint8_t* thisptr)
@@ -237,9 +238,9 @@ void ReadConfig()
     spdlog::info("Config Parse: iCustomResY: {}", iCustomResY);
     spdlog::info("Config Parse: bSkipLogos: {}", bSkipLogos);
     spdlog::info("Config Parse: iSkipLogos: {}", iSkipLogos);
-    if (iSkipLogos < 1 || iSkipLogos > 2)
+    if (iSkipLogos < 1 || iSkipLogos > 3)
     {
-        iSkipLogos = std::clamp(iSkipLogos, 1, 2);
+        iSkipLogos = std::clamp(iSkipLogos, 1, 3);
         spdlog::warn("Config Parse: iSkipLogos value invalid, clamped to {}", iSkipLogos);
     }
     spdlog::info("Config Parse: bUncapMenuFPS: {}", bUncapMenuFPS);
@@ -353,25 +354,47 @@ void IntroSkip()
 {
     if (bSkipLogos)
     {
-        // Skip caution
+        // Skip intro
         uint8_t* CautionSkipScanResult = Memory::PatternScan(baseModule, "FF ?? ?? 32 C0 48 ?? ?? ?? ?? 48 ?? ?? ?? ?? 0F ?? ?? ?? ?? 48 ?? ?? ?? 5F C3");
-        if (CautionSkipScanResult)
-        {
-            spdlog::info("Caution Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)CautionSkipScanResult - (uintptr_t)baseModule);
-            Memory::PatchBytes((uintptr_t)CautionSkipScanResult + 0x3, "\xB0\x03", 2);
-            spdlog::info("Caution Skip: Skipped to network dialog.");
-        }
-        else if (!CautionSkipScanResult)
-        {
-            spdlog::error("Caution Skip: Pattern scan failed.");
-        }
-
-        // Skip intro after network option
         uint8_t* IntroSkipScanResult = Memory::PatternScan(baseModule, "B0 03 0F ?? ?? ?? ?? ?? ?? 00 44 ?? ?? ?? ?? ?? ?? ?? 00");
         uint8_t* OpeningMovieScanResult = Memory::PatternScan(baseModule, "80 ?? ?? 00 0F ?? ?? ?? ?? ?? ?? 00 74 ?? F3 ?? ?? ?? ?? ??");
-        if (IntroSkipScanResult && OpeningMovieScanResult)
+        uint8_t* NetworkCheckSkipScanResult = Memory::PatternScan(baseModule, "8B ?? ?? 85 ?? 0F 84 ?? ?? ?? ?? 83 ?? 01 0F 84 ?? ?? ?? ?? 83 ?? 02 74 ??");
+        uint8_t* NetworkDialogSkipScanResult = Memory::PatternScan(baseModule, "F7 ?? ?? F7 FF FF FF 0F ?? ?? C3");
+        if (CautionSkipScanResult && IntroSkipScanResult && OpeningMovieScanResult && NetworkCheckSkipScanResult && NetworkDialogSkipScanResult)
         {
-            spdlog::info("Intro Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)IntroSkipScanResult - (uintptr_t)baseModule);
+            // Skip caution screens
+            spdlog::info("Intro Skip: Caution: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)CautionSkipScanResult - (uintptr_t)baseModule);
+            Memory::PatchBytes((uintptr_t)CautionSkipScanResult + 0x2, "\xB0\x03", 2);
+
+            // Enable network features
+            spdlog::info("Intro Skip: Network Check: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)NetworkCheckSkipScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid NetworkCheckMidHook{};
+            NetworkCheckMidHook = safetyhook::create_mid(NetworkCheckSkipScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    if (ctx.rcx + 0x3C && !bIntroSkipHasRun) {
+                        if (*reinterpret_cast<int*>(ctx.rcx + 0x3C) == 0)
+                        {
+                            // Enable network features
+                            *reinterpret_cast<int*>(ctx.rcx + 0x3C) = 3;
+                        }
+
+                        if (*reinterpret_cast<int*>(ctx.rcx + 0x3C) == 5) {
+                            bIntroSkipHasRun = true;
+                        }
+                    }
+                });
+
+            // Skip network dialog to confirm
+            spdlog::info("Intro Skip: Network Dialog: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)NetworkDialogSkipScanResult - (uintptr_t)baseModule);
+            static SafetyHookMid NetworkDialogMidHook{};
+            NetworkDialogMidHook = safetyhook::create_mid(NetworkDialogSkipScanResult + 0xA,
+                [](SafetyHookContext& ctx)
+                {
+                    if (!bIntroSkipHasRun) {
+                        ctx.rax |= (BYTE)1;
+                    }                                        
+                });
 
             switch (iSkipLogos)
             {
@@ -383,13 +406,21 @@ void IntroSkip()
                 // Main Menu
                 iSkipLogos = 5;
                 break;
+            case 3:
+                // Load Save
+                iSkipLogos = 8;
+                break;
             }
 
+            // Fix softlock if skipping to opening movies
+            spdlog::info("Intro Skip: Opening Movie: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)OpeningMovieScanResult - (uintptr_t)baseModule);
             if (iSkipLogos == 4)
             {
                 Memory::PatchBytes((uintptr_t)OpeningMovieScanResult + 0xD, "\x1A", 1);
             }
 
+            // Skip logos to title state
+            spdlog::info("Intro Skip: Logo Skip: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)IntroSkipScanResult - (uintptr_t)baseModule);
             static SafetyHookMid IntroSkipMidHook{};
             IntroSkipMidHook = safetyhook::create_mid(IntroSkipScanResult + 0x2,
                 [](SafetyHookContext& ctx)
@@ -402,14 +433,11 @@ void IntroSkip()
                         ctx.rax |= (BYTE)iSkipLogos;
                     }
                 });
-
-
-            spdlog::info("Intro Skip: Skipped intro to title state {}.", iSkipLogos);
         }
-        else if (!IntroSkipScanResult || !OpeningMovieScanResult)
+        else if (!CautionSkipScanResult || !IntroSkipScanResult || !OpeningMovieScanResult || !NetworkCheckSkipScanResult || !NetworkDialogSkipScanResult)
         {
             spdlog::error("Intro Skip: Pattern scan failed.");
-        }
+        }     
     }
 }
 
