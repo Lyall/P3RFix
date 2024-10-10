@@ -424,7 +424,7 @@ void IntroSkip()
         uint8_t* CautionSkipScanResult = Memory::PatternScan(baseModule, "FF ?? ?? 32 C0 48 ?? ?? ?? ?? 48 ?? ?? ?? ?? 0F ?? ?? ?? ?? 48 ?? ?? ?? 5F C3");
         uint8_t* IntroSkipScanResult = Memory::PatternScan(baseModule, "B0 03 0F ?? ?? ?? ?? ?? ?? 00 44 ?? ?? ?? ?? ?? ?? ?? 00");
         uint8_t* OpeningMovieScanResult = Memory::PatternScan(baseModule, "80 ?? ?? 00 0F ?? ?? ?? ?? ?? ?? 00 74 ?? F3 ?? ?? ?? ?? ??");
-        uint8_t* NetworkCheckSkipScanResult = Memory::PatternScan(baseModule, "8B ?? ?? 85 ?? 0F 84 ?? ?? ?? ?? 83 ?? 01 0F 84 ?? ?? ?? ?? 83 ?? 02 74 ??");
+        uint8_t* NetworkCheckSkipScanResult = Memory::PatternScan(baseModule, "48 ?? ?? 8B ?? 3C 85 ?? 0F 84 ?? ?? ?? ??");
         uint8_t* NetworkDialogSkipScanResult = Memory::PatternScan(baseModule, "F7 ?? ?? F7 FF FF FF 0F ?? ?? C3");
         if (CautionSkipScanResult && IntroSkipScanResult && OpeningMovieScanResult && NetworkCheckSkipScanResult && NetworkDialogSkipScanResult)
         {
@@ -435,7 +435,7 @@ void IntroSkip()
             // Enable network features
             spdlog::info("Intro Skip: Network Check: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)NetworkCheckSkipScanResult - (uintptr_t)baseModule);
             static SafetyHookMid NetworkCheckMidHook{};
-            NetworkCheckMidHook = safetyhook::create_mid(NetworkCheckSkipScanResult,
+            NetworkCheckMidHook = safetyhook::create_mid(NetworkCheckSkipScanResult + 0x3,
                 [](SafetyHookContext& ctx)
                 {
                     if (ctx.rcx + 0x3C && !bIntroSkipHasRun) {
