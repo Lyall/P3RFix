@@ -37,7 +37,6 @@ bool bAdjustFPSCap;
 float fFramerateCap;
 bool bPauseOnFocusLoss;
 bool bEnableConsole;
-string sConsoleHotkey;
 bool bScreenPercentage;
 float fScreenPercentage = 100.0f;
 bool bRenTexResMulti;
@@ -251,7 +250,6 @@ void ReadConfig()
     inipp::get_value(ini.sections["Pause on Focus Loss"], "Enabled", bPauseOnFocusLoss);
     inipp::get_value(ini.sections["Uncap 60FPS Menus"], "Enabled", bUncapMenuFPS);
     inipp::get_value(ini.sections["Enable Console"], "Enabled", bEnableConsole);
-    inipp::get_value(ini.sections["Enable Console"], "Hotkey", sConsoleHotkey);
     inipp::get_value(ini.sections["Fix HUD"], "Enabled", bHUDFix);
     inipp::get_value(ini.sections["Fix Aspect Ratio"], "Enabled", bAspectFix);
     inipp::get_value(ini.sections["Fix FOV"], "Enabled", bFOVFix);
@@ -280,7 +278,6 @@ void ReadConfig()
     spdlog::info("Config Parse: bUncapMenuFPS: {}", bUncapMenuFPS);
     spdlog::info("Config Parse: bPauseOnFocusLoss: {}", bPauseOnFocusLoss);
     spdlog::info("Config Parse: bEnableConsole: {}", bEnableConsole);
-    spdlog::info("Config Parse: sConsoleHotkey: {}", sConsoleHotkey);
     spdlog::info("Config Parse: bHUDFix: {}", bHUDFix);
     spdlog::info("Config Parse: bAspectFix: {}", bAspectFix);
     spdlog::info("Config Parse: bFOVFix: {}", bFOVFix);
@@ -591,15 +588,6 @@ void EnableConsole()
             else {
                 spdlog::error("Construct Console: Failed to construct console object - ConsoleClass or GameViewport is null.");
                 return;
-            }
-
-            if (SDK::UInputSettings::GetDefaultObj() && SDK::UInputSettings::GetDefaultObj()->ConsoleKeys.Num() != 0)
-            {
-                SDK::UInputSettings::GetDefaultObj()->ConsoleKeys[0].KeyName = SDK::UKismetStringLibrary::Conv_StringToName(Util::StringToWString(sConsoleHotkey).c_str());
-            }
-            else
-            {
-                spdlog::warn("Construct Console: Failed to bind console key.");
             }
 
             // Log console key
