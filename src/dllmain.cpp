@@ -15,7 +15,7 @@ HMODULE thisModule;
 inipp::Ini<char> ini;
 std::shared_ptr<spdlog::logger> logger;
 string sFixName = "P3RFix";
-string sFixVer = "1.2.3";
+string sFixVer = "1.2.4";
 string sLogFile = "P3RFix.log";
 string sConfigFile = "P3RFix.ini";
 string sExeName;
